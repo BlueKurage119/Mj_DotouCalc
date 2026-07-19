@@ -497,6 +497,140 @@ body {
   opacity: 0.85;
 }
 
+/* ---------- analysis ---------- */
+.mode-badge {
+  margin-left: auto;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--accent);
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  padding: 1px 6px;
+  background: var(--accent-soft);
+}
+
+.analysis-card {
+  background: var(--panel);
+  border: 2px solid var(--accent);
+  border-radius: 10px;
+  padding: 10px 12px;
+  box-shadow: 0 2px 8px rgb(27 111 184 / 15%);
+}
+
+.analysis-title {
+  font-size: 0.9rem;
+  font-weight: 700;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.analysis-banner {
+  background: var(--accent);
+  color: #fff;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  margin-bottom: 8px;
+  text-align: center;
+}
+
+.analysis-empty {
+  color: var(--sub);
+  font-size: 0.88rem;
+  margin: 10px 0 4px;
+}
+
+.wait-list {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.wait-row {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--bg);
+  text-align: left;
+}
+
+.wait-tile .tile-face,
+.discard-waits .tile-face {
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  padding: 3px 5px;
+  background: #fffdf5;
+}
+
+.discard-waits {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  flex: 1;
+}
+
+.discard-waits .tile-face {
+  transform: scale(0.82);
+  transform-origin: left center;
+  margin-right: -4px;
+}
+
+.discard-arrow {
+  font-size: 0.75rem;
+  color: var(--sub);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.wait-left {
+  font-size: 0.75rem;
+  color: var(--sub);
+  white-space: nowrap;
+}
+
+.wait-score {
+  font-size: 0.8rem;
+  color: var(--ink);
+  display: flex;
+  align-items: baseline;
+  gap: 3px;
+  white-space: nowrap;
+}
+
+.wait-score:first-of-type {
+  margin-left: auto;
+}
+
+.wait-score strong {
+  font-size: 0.95rem;
+}
+
+.wait-score .rank {
+  font-style: normal;
+  color: var(--red);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.wait-score.noyaku {
+  margin-left: auto;
+}
+
+.wait-score.noyaku em {
+  font-style: normal;
+  color: var(--sub);
+  font-size: 0.75rem;
+}
+
 /* ---------- footer ---------- */
 .footer {
   margin-top: 14px;

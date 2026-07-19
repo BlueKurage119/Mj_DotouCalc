@@ -1,0 +1,154 @@
+import { describe, expect, it } from 'vitest'
+import { calcAlmighty } from '../src/core/almighty'
+import { analyzeDiscards, analyzeWaits, type AnalysisInput } from '../src/core/analysis'
+import { PRESETS } from '../src/core/options'
+import { ALL_TILES, EAST, SOUTH, type TileInstance } from '../src/core/tiles'
+
+const NAME_TO_ID: Record<string, number> = { 東: 28, 南: 29, 西: 30, 北: 31, 白: 32, 發: 33, 中: 34 }
+function t(s: string): TileInstance[] {
+  return s
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((w) => {
+      if (NAME_TO_ID[w]) return { t: NAME_TO_ID[w] }
+      const n = Number(w[0])
+      const suit = w[1]
+      const offset = suit === 'm' ? 0 : suit === 'p' ? 9 : 18
+      if (n === 0) return { t: offset + 5, red: true }
+      return { t: offset + n }
+    })
+}
+
+const baseInput: Omit<AnalysisInput, 'concealed'> = {
+  melds: [],
+  seatWind: SOUTH,
+  roundWind: EAST,
+  riichi: false,
+  doubleRiichi: false,
+  ippatsu: false,
+  afterKan: false,
+  lastTile: false,
+  doraIndicators: [],
+  uraIndicators: [],
+  koPayers: 3,
+  dealerPays: true,
+}
+
+const dotou = PRESETS.dotou.options
+
+describe('聴牌分析 (analyzeWaits)', () => {
+  it('中バック形: 待ちは 5s と 中', () => {
+    const out = analyzeWaits(
+      { ...baseInput, concealed: t('2m 3m 4m 5m 6m 7m 2p 3p 4p 5s 中 中') },
+      dotou,
+    )
+    expect(out.ok).toBe(true)
+    expect(out.tenpai).toBe(true)
+    // 万能牌が5s周りの順子も作れるため待ちは 3s-7s + 中 に広がる
+    expect(out.waits.map((w) => w.tile)).toEqual([21, 22, 23, 24, 25, 34])
+    const w5s = out.waits.find((w) => w.tile === 23)!
+    expect(w5s.ron?.yaku[52]).toBe(1) // 役牌 中
+    expect(w5s.remaining).toBe(3) // 手牌に1枚
+    expect(w5s.tsumo?.payment.detail).toContain('オール')
+  })
+
+  it('国士12種+万能牌: 13種すべてが待ち', () => {
+    const out = analyzeWaits(
+      { ...baseInput, concealed: t('1m 9m 1p 9p 1s 9s 東 南 西 北 白 發') },
+      dotou,
+    )
+    expect(out.tenpai).toBe(true)
+    expect(out.waits.length).toBe(13)
+    expect(out.waits.every((w) => (w.ron?.yakuman ?? 0) >= 1)).toBe(true)
+  })
+
+  it('七対子形の待ち', () => {
+    // 11m 22m 33p 44p 55s 6s + 万能牌(=6s相当) → 待ちは残りの対子候補
+    const out = analyzeWaits(
+      { ...baseInput, concealed: t('1m 1m 2m 2m 3p 3p 4p 4p 5s 5s 6s 9s') },
+      dotou,
+    )
+    expect(out.tenpai).toBe(true)
+    // 万能牌が6s or 9s になり、もう片方が単騎待ちになる
+    expect(out.waits.map((w) => w.tile)).toContain(24) // 6s
+    expect(out.waits.map((w) => w.tile)).toContain(27) // 9s
+  })
+
+  it('形式聴牌: ロンは役なし・ツモは門前清自摸和', () => {
+    const out = analyzeWaits(
+      { ...baseInput, concealed: t('2m 3m 4m 6m 7m 8m 2p 3p 4p 1s 2s 9s') },
+      dotou,
+    )
+    expect(out.tenpai).toBe(true)
+    const w3s = out.waits.find((w) => w.tile === 21) // 3s (123s + 99s... 9s単騎側もあるが3s確認)
+    expect(w3s).toBeDefined()
+    expect(w3s!.ron).toBeNull() // 役なし
+    expect(w3s!.tsumo?.yaku[35]).toBe(1) // 門前清自摸和
+    expect(w3s!.noYaku).toBe(false) // ツモなら役があるので形式聴牌ではない
+  })
+
+  it('ノーテンなら tenpai=false', () => {
+    const out = analyzeWaits(
+      { ...baseInput, concealed: t('1m 4m 7m 2p 5p 8p 3s 6s 9s 東 南 西') },
+      dotou,
+    )
+    expect(out.ok).toBe(true)
+    expect(out.tenpai).toBe(false)
+  })
+
+  it('hairi由来の待ちが総当たり判定と一致する', () => {
+    const hands = [
+      '2m 3m 4m 5m 6m 7m 2p 3p 4p 5s 中 中',
+      '1m 1m 2m 2m 3p 3p 4p 4p 5s 5s 6s 9s',
+      '2m 3m 4m 6m 7m 8m 2p 3p 4p 1s 2s 9s',
+    ]
+    for (const hand of hands) {
+      const input = { ...baseInput, concealed: t(hand) }
+      const viaHairi = analyzeWaits(input, dotou).waits.map((w) => w.tile)
+      const brute: number[] = []
+      for (const w of ALL_TILES) {
+        const r = calcAlmighty({ ...input, winTile: { t: w }, isTsumo: false }, dotou)
+        if (r.ok || r.hadNoYaku) brute.push(w)
+      }
+      expect(viaHairi).toEqual(brute)
+    }
+  })
+})
+
+describe('何切る分析 (analyzeDiscards)', () => {
+  it('13枚: 不要牌を切ると聴牌', () => {
+    const out = analyzeDiscards({
+      ...baseInput,
+      concealed: t('2m 3m 4m 5m 6m 7m 2p 3p 4p 5s 中 中 9p'),
+    })
+    expect(out.ok).toBe(true)
+    const d9p = out.discards.find((d) => d.tile === 18) // 9p
+    expect(d9p).toBeDefined()
+    expect(d9p!.waits).toContain(23) // 5s
+    expect(d9p!.waits).toContain(34) // 中
+  })
+
+  it('万能牌の解釈で既に和了形ならツモ和了可能と判定', () => {
+    const out = analyzeDiscards({
+      ...baseInput,
+      concealed: t('2m 3m 4m 5m 6m 7m 2p 3p 4p 5s 5s 中 中'),
+    })
+    expect(out.ok).toBe(true)
+    expect(out.tsumoWinPossible).toBe(true)
+  })
+
+  it('打牌候補は実牌のみ (万能牌は切れない)', () => {
+    const out = analyzeDiscards({
+      ...baseInput,
+      concealed: t('2m 3m 4m 5m 6m 7m 2p 3p 4p 5s 中 中 9p'),
+    })
+    const handIds = new Set(t('2m 3m 4m 5m 6m 7m 2p 3p 4p 5s 中 中 9p').map((x) => x.t))
+    expect(out.discards.every((d) => handIds.has(d.tile))).toBe(true)
+  })
+
+  it('枚数不正はエラー', () => {
+    const out = analyzeDiscards({ ...baseInput, concealed: t('1m 2m 3m') })
+    expect(out.ok).toBe(false)
+    expect(out.error).toContain('13枚')
+  })
+})

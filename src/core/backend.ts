@@ -82,3 +82,42 @@ export function calcBackend(input: BackendInput): BackendResult {
     return INVALID
   }
 }
+
+export interface HairiResult {
+  /** 向聴数 (0 = 聴牌) */
+  now: number
+  /** 待ち牌 (13枚相当のとき) */
+  waits: TileId[]
+  /** 打牌 → その後の待ち牌 (14枚相当のとき。最良向聴を保つ打牌のみ) */
+  waitsAfterDiscard: [TileId, TileId[]][]
+}
+
+/**
+ * 向聴・待ち計算。和了形が完成している場合は null を返す。
+ * 注意: riichi-rs-bundlers の hairi 出力は牌IDが0始まり (入力は1始まり) のため+1補正する。
+ */
+export function calcHairi(
+  closed: TileId[],
+  melds: { open: boolean; tiles: TileId[] }[],
+): HairiResult | null {
+  try {
+    const r = calc({
+      closed_part: closed as never,
+      open_part: melds.map((m) => [m.open, m.tiles]) as never,
+      options: { dora: [], aka_count: 0, allow_aka: false, allow_kuitan: true },
+      calc_hairi: true,
+    })
+    if (r.is_agari) return null
+    if (!r.hairi) return null
+    return {
+      now: r.hairi.now,
+      waits: r.hairi.wait.map((t) => t + 1),
+      waitsAfterDiscard: r.hairi.waits_after_discard.map(
+        ([d, ws]) => [d + 1, ws.map((t) => t + 1)] as [TileId, TileId[]],
+      ),
+    }
+  } catch {
+    // 'no yaku' = 和了形は完成している
+    return null
+  }
+}
