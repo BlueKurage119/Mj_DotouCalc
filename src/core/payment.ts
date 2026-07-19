@@ -47,6 +47,22 @@ export function basePoints(han: number, fu: number, yakuman: number, kiriage: bo
   return { base: raw, rank: '' }
 }
 
+/**
+ * 「＋N飜で満貫」のような次の点数帯までのヒント。
+ * 満貫未満は満貫まで、満貫以上は次の帯 (跳満/倍満/三倍満/数え役満) まで。
+ * 役満・数え役満は null。
+ */
+export function nextTierHint(han: number, fu: number, yakuman: number, kiriage: boolean): string | null {
+  if (yakuman > 0) return null
+  const current = basePoints(han, fu, 0, kiriage).rank
+  if (current === '数え役満') return null
+  for (let k = 1; han + k <= 13; k++) {
+    const next = basePoints(han + k, fu, 0, kiriage).rank
+    if (next !== '' && next !== current) return `＋${k}飜で${next}`
+  }
+  return null
+}
+
 export function calcPayment(p: PaymentInput): Payment {
   const { base, rank } = basePoints(p.han, p.fu, p.yakuman, p.kiriage)
   if (p.mode === 'no-dealer') {

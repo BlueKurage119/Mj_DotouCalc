@@ -50,29 +50,18 @@ export function WaitsPanel({
         <ul className="wait-list">
           {outcome.waits.map((w) => (
             <li key={w.tile}>
-              <button className="wait-row" onClick={() => onPickWait(w.tile)}>
+              {/* 点数は右寄せの2カラムで縦のラインを揃える */}
+              <button className="wait-row wait-columns" onClick={() => onPickWait(w.tile)}>
                 <span className="wait-tile">
                   <TileImage tile={{ t: w.tile }} />
                 </span>
                 <span className="wait-left">残{w.remaining}枚</span>
-                {w.noYaku ? (
-                  <span className="wait-score noyaku">
-                    <em>形式聴牌 (役なし)</em>
-                  </span>
-                ) : (
-                  <>
-                    <ScoreCell
-                      label="ロン"
-                      total={w.ron?.payment.total}
-                      rank={w.ron?.payment.rank}
-                    />
-                    <ScoreCell
-                      label="ツモ"
-                      total={w.tsumo?.payment.total}
-                      rank={w.tsumo?.payment.rank}
-                    />
-                  </>
-                )}
+                <ScoreCell label="ロン" total={w.ron?.payment.total} rank={w.ron?.payment.rank} />
+                <ScoreCell
+                  label="ツモ"
+                  total={w.tsumo?.payment.total}
+                  rank={w.tsumo?.payment.rank}
+                />
               </button>
             </li>
           ))}

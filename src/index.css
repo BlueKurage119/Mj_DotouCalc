@@ -235,6 +235,18 @@ button {
 
 .meld-card {
   min-height: 62px;
+  cursor: pointer;
+}
+
+.add-meld-btn {
+  border: 1px dashed var(--outline);
+  background: none;
+  color: var(--sub);
+  border-radius: 14px;
+  padding: 12px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  min-height: 52px;
 }
 
 .meld-tiles {
@@ -426,11 +438,27 @@ button {
   color: var(--sub);
 }
 
-.key.enter {
+.key.enter,
+.key.backspace {
   grid-row: span 2;
   height: auto;
+}
+
+.key.enter {
   background: var(--primary);
   color: var(--on-primary);
+}
+
+.sheet-close {
+  border: none;
+  background: var(--bg);
+  color: var(--sub);
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  font-size: 1rem;
+  font-weight: 700;
+  margin-left: 10px;
 }
 
 .key.zero {
@@ -609,6 +637,33 @@ button {
   justify-content: space-between;
 }
 
+.side-badge {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--on-primary);
+  background: var(--primary);
+  border-radius: 6px;
+  padding: 2px 8px;
+  margin-right: 4px;
+}
+
+.noyaku-side .noyaku-text {
+  color: var(--sub);
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.tier-hint {
+  margin-top: 6px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--primary-dark);
+  background: var(--primary-container);
+  border-radius: 8px;
+  padding: 5px 10px;
+  display: inline-block;
+}
+
 .yaku-list {
   list-style: none;
   margin: 8px 0 0;
@@ -722,6 +777,17 @@ button {
   font-size: 0.75rem;
   color: var(--sub);
   white-space: nowrap;
+}
+
+/* 待ち一覧: 点数を右寄せ2カラムで縦のラインを揃える */
+.wait-row.wait-columns {
+  display: grid;
+  grid-template-columns: 40px auto 1fr minmax(6.4em, auto);
+  align-items: center;
+}
+
+.wait-columns .wait-score {
+  justify-content: flex-end;
 }
 
 .wait-score {

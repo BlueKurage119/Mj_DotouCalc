@@ -5,7 +5,6 @@ import { PRESETS, type PresetId, type RuleOptions } from './core/options'
 import {
   EAST,
   NORTH,
-  isFive,
   suitOf,
   tileName,
   type TileId,
@@ -50,10 +49,10 @@ export default function App() {
   const [seatWind, setSeatWind] = useState<TileId>(EAST)
   const [roundWind, setRoundWind] = useState<TileId>(EAST)
   const [luck, setLuck] = useState<LuckState>({
-    isTsumo: true,
     riichiState: 'none',
     ippatsu: false,
-    afterKan: false,
+    rinshan: false,
+    chankan: false,
     lastTile: false,
     koPayers: 3,
     dealerPays: true,
@@ -141,39 +140,75 @@ export default function App() {
     return m
   }
 
-  /** 副露の自動補完: ポン/カンは同一牌、チーは入力牌を起点に3枚 */
+  /**
+   * 副露入力: 1牌なら自動補完 (ポン/カンは同一牌、チーは起点)。
+   * 3-4牌なら形を検証して種別を自動判定 (3枚同一=ポン / 連続3=チー / 4枚同一=カン)。
+   * 赤5は 0 入力 (例: 340m でチー三四赤五萬)
+   */
   function fillMeld(i: number, tiles: TileInstance[]): string | null {
     const meld = melds[i]
     if (!meld || tiles.length === 0) return null
-    const base = tiles[0]
     let newTiles: TileInstance[]
-    if (meld.type === 'chi') {
-      if (suitOf(base.t) === 'z') return '字牌はチーできません'
-      const n = ((base.t - 1) % 9) + 1
-      if (n > 7) return `${tileName(base.t)}起点のチーはできません`
-      newTiles = [base, { t: base.t + 1 }, { t: base.t + 2 }]
+    let newType: MeldType = meld.type
+    if (tiles.length === 1) {
+      const base = tiles[0]
+      if (meld.type === 'chi') {
+        if (suitOf(base.t) === 'z') return '字牌はチーできません'
+        const n = ((base.t - 1) % 9) + 1
+        if (n > 7) return `${tileName(base.t)}起点のチーはできません`
+        newTiles = [base, { t: base.t + 1 }, { t: base.t + 2 }]
+      } else {
+        newTiles = [base, ...Array.from({ length: meldSize(meld.type) - 1 }, () => ({ t: base.t }))]
+      }
+    } else if (tiles.length === 3 || tiles.length === 4) {
+      const sorted = [...tiles].sort((a, b) => a.t - b.t)
+      const ts = sorted.map((x) => x.t)
+      const allSame = ts.every((t) => t === ts[0])
+      if (tiles.length === 4) {
+        if (!allSame) return '槓は同じ牌4枚で入力してください'
+        newType = meld.type === 'ankan' ? 'ankan' : 'minkan'
+      } else if (allSame) {
+        newType = 'pon'
+      } else if (
+        suitOf(ts[0]) !== 'z' &&
+        suitOf(ts[0]) === suitOf(ts[2]) &&
+        ts[1] === ts[0] + 1 &&
+        ts[2] === ts[0] + 2
+      ) {
+        newType = 'chi'
+      } else {
+        return '副露の形 (チー/ポン/カン) になっていません'
+      }
+      newTiles = sorted
     } else {
-      const count = meldSize(meld.type)
-      newTiles = Array.from({ length: count }, (_, k) => (k === 0 ? base : { t: base.t }))
-      if (base.red) newTiles = [base, ...newTiles.slice(1).map(() => ({ t: base.t }))]
+      return '副露は3枚 (槓は4枚) で入力してください'
     }
+    if (newTiles.filter((x) => x.red).length > 1) return '赤5は各色1枚までです'
     // 既存の副露牌を除いた上で使用可能かチェック
     const withoutThis = new Map(usedCount)
     for (const x of meld.tiles) withoutThis.set(x.t, (withoutThis.get(x.t) ?? 0) - 1)
-    const adding = countOf(newTiles)
-    for (const [t, c] of adding) {
+    for (const [t, c] of countOf(newTiles)) {
       if ((withoutThis.get(t) ?? 0) + c > 4) return `${tileName(t)}が5枚以上になります`
     }
-    if (newTiles.some((x) => x.red) && [...melds.flatMap((m, j) => (j === i ? [] : m.tiles)), ...hand, ...doraInd, ...uraInd].some((x) => x.red && suitOf(x.t) === suitOf(base.t))) {
-      return '赤5は各色1枚までです'
+    const redSuits = new Set(newTiles.filter((x) => x.red).map((x) => suitOf(x.t)))
+    if (redSuits.size > 0) {
+      const others = [
+        ...hand,
+        ...doraInd,
+        ...uraInd,
+        ...melds.flatMap((m, j) => (j === i ? [] : m.tiles)),
+      ]
+      for (const x of others) {
+        if (x.red && redSuits.has(suitOf(x.t))) return '赤5は各色1枚までです'
+      }
     }
     const next = melds.slice()
-    next[i] = { ...meld, tiles: newTiles }
+    next[i] = { type: newType, tiles: newTiles }
     setMelds(next)
     // 手牌があふれる場合は末尾から削る
     const newCap = 13 - 3 * next.filter((m) => m.tiles.length > 0).length
     if (hand.length > newCap) setHand(hand.slice(0, newCap))
-    if (meld.type !== 'ankan') setLuck((l) => ({ ...l, riichiState: 'none', ippatsu: false }))
+    if (newType !== 'ankan') setLuck((l) => ({ ...l, riichiState: 'none', ippatsu: false }))
     return null
   }
 
@@ -197,25 +232,8 @@ export default function App() {
     else if (target === 'dora') setDoraInd(doraInd.filter((_, j) => j !== index))
     else if (target === 'ura') setUraInd(uraInd.filter((_, j) => j !== index))
     else {
-      // 副露内: 5なら赤トグル、それ以外は副露をクリア
-      const meld = melds[target.meld]
-      if (!meld) return
-      const tile = meld.tiles[index]
-      if (tile && isFive(tile.t)) {
-        const makeRed = !tile.red
-        if (makeRed && redUsed.has(suitOf(tile.t))) {
-          setTenkeyError('赤5は各色1枚までです')
-          return
-        }
-        const next = melds.slice()
-        next[target.meld] = {
-          ...meld,
-          tiles: meld.tiles.map((x, j) => (j === index ? { ...x, red: makeRed } : x)),
-        }
-        setMelds(next)
-      } else {
-        deleteLast(target)
-      }
+      // 副露内: タップで副露をクリアして入れ直し (赤は0入力で指定)
+      deleteLast(target)
     }
     setTenkeyError(null)
   }
@@ -241,9 +259,19 @@ export default function App() {
     const meld = melds[i]
     if (!meld) return
     const next = melds.slice()
-    // 種別変更時は入れ直し (チー⇔ポン等で形が変わるため)
-    next[i] = { type, tiles: [] }
+    // 明槓⇔暗槓は牌をそのまま引き継ぐ。それ以外は形が変わるため入れ直し
+    const kanSwap =
+      (type === 'minkan' || type === 'ankan') &&
+      (meld.type === 'minkan' || meld.type === 'ankan') &&
+      meld.tiles.length === 4
+    next[i] = kanSwap ? { ...meld, type } : { type, tiles: [] }
     setMelds(next)
+    setTenkeyError(null)
+  }
+
+  function removeMeld(i: number) {
+    setMelds(melds.filter((_, j) => j !== i))
+    setPopup(null)
     setTenkeyError(null)
   }
 
@@ -277,7 +305,7 @@ export default function App() {
       riichi: luck.riichiState === 'riichi',
       doubleRiichi: luck.riichiState === 'double',
       ippatsu: riichiOn && luck.ippatsu,
-      afterKan: luck.afterKan,
+      afterKan: false, // 嶺上/搶槓は和了計算時に側別で上書き
       lastTile: luck.lastTile,
       doraIndicators: doraInd,
       uraIndicators: riichiOn ? uraInd : [],
@@ -287,19 +315,43 @@ export default function App() {
     [activeMelds, seatWind, roundWind, luck, riichiOn, doraInd, uraInd],
   )
 
-  // 13枚相当: 末尾を和了牌として点数計算、和了形でなければ何切る
-  const scoreOutcome = useMemo(() => {
+  // 13枚相当: 末尾を和了牌としてツモ・ロン両方を計算。和了形でなければ何切る
+  const scoreTsumo = useMemo(() => {
     if (!meldsComplete || hand.length !== cap) return null
     return calcAlmighty(
-      { ...baseInput, concealed: hand.slice(0, -1), winTile: hand[hand.length - 1], isTsumo: luck.isTsumo },
+      {
+        ...baseInput,
+        afterKan: luck.rinshan,
+        concealed: hand.slice(0, -1),
+        winTile: hand[hand.length - 1],
+        isTsumo: true,
+      },
       options,
     )
-  }, [meldsComplete, hand, cap, baseInput, luck.isTsumo, options])
+  }, [meldsComplete, hand, cap, baseInput, luck.rinshan, options])
+
+  const scoreRon = useMemo(() => {
+    if (!meldsComplete || hand.length !== cap) return null
+    return calcAlmighty(
+      {
+        ...baseInput,
+        afterKan: luck.chankan,
+        concealed: hand.slice(0, -1),
+        winTile: hand[hand.length - 1],
+        isTsumo: false,
+      },
+      options,
+    )
+  }, [meldsComplete, hand, cap, baseInput, luck.chankan, options])
+
+  const isWin =
+    (scoreTsumo !== null && (scoreTsumo.ok || scoreTsumo.hadNoYaku)) ||
+    (scoreRon !== null && (scoreRon.ok || scoreRon.hadNoYaku))
 
   const discardsOutcome = useMemo(() => {
-    if (!scoreOutcome || scoreOutcome.ok || scoreOutcome.hadNoYaku) return null
+    if (!scoreTsumo || isWin) return null
     return analyzeDiscards({ ...baseInput, concealed: hand })
-  }, [scoreOutcome, baseInput, hand])
+  }, [scoreTsumo, isWin, baseInput, hand])
 
   // 12枚相当: 聴牌分析
   const waitsOutcome = useMemo(() => {
@@ -485,33 +537,50 @@ export default function App() {
         </div>
 
         <div className="meld-grid">
-          {[0, 1, 2, 3].map((i) => {
-            const meld = melds[i]
-            return (
-              <button key={i} className="card meld-card" onClick={() => openMeldEditor(i)}>
-                <div className="card-label">
-                  副露{meld && meld.tiles.length > 0 ? ` (${MELD_LABELS[meld.type]})` : ''}
-                </div>
-                <div className="meld-tiles">
-                  {meld && meld.tiles.length > 0 ? (
-                    meld.tiles.map((x, j) => <TileImage key={j} tile={x} />)
-                  ) : (
-                    <span className="hint">なし</span>
-                  )}
-                </div>
-              </button>
-            )
-          })}
+          {melds.map((meld, i) => (
+            <div
+              key={i}
+              className="card meld-card"
+              role="button"
+              tabIndex={0}
+              onClick={() => openMeldEditor(i)}
+            >
+              <div className="card-label">
+                副露{meld.tiles.length > 0 ? ` (${MELD_LABELS[meld.type]})` : ''}
+                <span
+                  className="text-btn clear-mini"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    removeMeld(i)
+                  }}
+                >
+                  ✕
+                </span>
+              </div>
+              <div className="meld-tiles">
+                {meld.tiles.length > 0 ? (
+                  meld.tiles.map((x, j) => <TileImage key={j} tile={x} />)
+                ) : (
+                  <span className="hint">タップして入力</span>
+                )}
+              </div>
+            </div>
+          ))}
+          {melds.length < 4 && (
+            <button className="add-meld-btn" onClick={() => openMeldEditor(melds.length)}>
+              ＋ 副露を追加
+            </button>
+          )}
         </div>
 
         <button className="card luck-card" onClick={() => setPopup({ kind: 'luck' })}>
           <div className="card-label">立直・偶然役関係</div>
-          <div className="luck-summary">{luckSummary(luck, hasOpenMeld)}</div>
+          <div className="luck-summary">{luckSummary(luck)}</div>
         </button>
 
         <div className="result-area">
-          {scoreOutcome && (scoreOutcome.ok || scoreOutcome.hadNoYaku) ? (
-            <ResultPanel outcome={scoreOutcome} inputComplete />
+          {isWin && scoreTsumo && scoreRon ? (
+            <ResultPanel tsumo={scoreTsumo} ron={scoreRon} kiriage={options.kiriage} />
           ) : discardsOutcome ? (
             <DiscardsPanel
               outcome={discardsOutcome}
