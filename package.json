@@ -13,6 +13,7 @@
   "dependencies": {
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
+    "riichi-mahjong-tiles": "^0.1.0",
     "riichi-rs-bundlers": "^2.1.0",
     "riichi-ts": "^1.1.1"
   },

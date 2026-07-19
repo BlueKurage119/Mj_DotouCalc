@@ -1,6 +1,6 @@
 import type { DiscardsOutcome, WaitsOutcome } from '../core/analysis'
 import type { TileId } from '../core/tiles'
-import { TileFace } from './TileFace'
+import { TileImage } from './TileImage'
 
 function ScoreCell({ label, total, rank }: { label: string; total?: number; rank?: string }) {
   if (total === undefined) {
@@ -52,7 +52,7 @@ export function WaitsPanel({
             <li key={w.tile}>
               <button className="wait-row" onClick={() => onPickWait(w.tile)}>
                 <span className="wait-tile">
-                  <TileFace tile={{ t: w.tile }} />
+                  <TileImage tile={{ t: w.tile }} />
                 </span>
                 <span className="wait-left">残{w.remaining}枚</span>
                 {w.noYaku ? (
@@ -115,12 +115,12 @@ export function DiscardsPanel({
               <li key={d.tile}>
                 <button className="wait-row" onClick={() => onDiscard(d.tile)}>
                   <span className="wait-tile">
-                    <TileFace tile={{ t: d.tile }} />
+                    <TileImage tile={{ t: d.tile }} />
                   </span>
                   <span className="discard-arrow">切→</span>
                   <span className="discard-waits">
                     {d.waits.map((w) => (
-                      <TileFace key={w} tile={{ t: w }} />
+                      <TileImage key={w} tile={{ t: w }} />
                     ))}
                   </span>
                   <span className="wait-left">計{d.totalRemaining}枚</span>
