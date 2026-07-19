@@ -1,24 +1,28 @@
 // 「立直・偶然役関係」ボトムシート
+// ツモ/ロンは切替式ではなく両方計算するため、嶺上開花(ツモ側)と搶槓(ロン側)は独立トグル
 
 export interface LuckState {
-  isTsumo: boolean
   riichiState: 'none' | 'riichi' | 'double'
   ippatsu: boolean
-  afterKan: boolean
+  /** 嶺上開花 (ツモ側の結果にのみ適用) */
+  rinshan: boolean
+  /** 搶槓 (ロン側の結果にのみ適用) */
+  chankan: boolean
+  /** 海底(ツモ側)/河底(ロン側) */
   lastTile: boolean
   koPayers: number
   dealerPays: boolean
 }
 
-export function luckSummary(s: LuckState, hasOpenMeld: boolean): string {
-  const parts: string[] = [s.isTsumo ? 'ツモ' : 'ロン']
+export function luckSummary(s: LuckState): string {
+  const parts: string[] = []
   if (s.riichiState === 'riichi') parts.push('立直')
   if (s.riichiState === 'double') parts.push('W立直')
   if (s.riichiState !== 'none' && s.ippatsu) parts.push('一発')
-  if (s.afterKan) parts.push(s.isTsumo ? '嶺上' : '搶槓')
-  if (s.lastTile) parts.push(s.isTsumo ? '海底' : '河底')
-  if (hasOpenMeld && s.riichiState !== 'none') parts.push('(副露中は立直不可)')
-  return parts.join('・')
+  if (s.rinshan) parts.push('嶺上')
+  if (s.chankan) parts.push('搶槓')
+  if (s.lastTile) parts.push('海底/河底')
+  return parts.length > 0 ? parts.join('・') : 'なし'
 }
 
 export function LuckSheet({
@@ -46,17 +50,6 @@ export function LuckSheet({
           <button className="text-btn" onClick={onClose}>
             完了
           </button>
-        </div>
-        <div className="seg-row">
-          <span className="seg-label">和了</span>
-          <div className="seg">
-            <button className={state.isTsumo ? 'on' : ''} onClick={() => patch({ isTsumo: true })}>
-              ツモ
-            </button>
-            <button className={!state.isTsumo ? 'on' : ''} onClick={() => patch({ isTsumo: false })}>
-              ロン
-            </button>
-          </div>
         </div>
         <div className="seg-row">
           <span className="seg-label">立直</span>
@@ -94,56 +87,62 @@ export function LuckSheet({
               一発
             </button>
             <button
-              className={state.afterKan ? 'on' : ''}
-              onClick={() => patch({ afterKan: !state.afterKan })}
+              className={state.rinshan ? 'on' : ''}
+              onClick={() => patch({ rinshan: !state.rinshan })}
             >
-              {state.isTsumo ? '嶺上開花' : '搶槓'}
+              嶺上開花
+            </button>
+            <button
+              className={state.chankan ? 'on' : ''}
+              onClick={() => patch({ chankan: !state.chankan })}
+            >
+              搶槓
             </button>
             <button
               className={state.lastTile ? 'on' : ''}
               onClick={() => patch({ lastTile: !state.lastTile })}
             >
-              {state.isTsumo ? '海底' : '河底'}
+              海底/河底
             </button>
           </div>
         </div>
-        {state.isTsumo && (
-          <div className="seg-row">
-            <span className="seg-label">ツモ払い</span>
-            {isStandard && !isDealer ? (
-              <div className="seg wrap">
+        <div className="seg-row">
+          <span className="seg-label">ツモ払い</span>
+          {isStandard && !isDealer ? (
+            <div className="seg wrap">
+              <button
+                className={state.dealerPays ? 'on' : ''}
+                onClick={() => patch({ dealerPays: !state.dealerPays })}
+              >
+                親が払う
+              </button>
+              {[0, 1, 2].map((n) => (
                 <button
-                  className={state.dealerPays ? 'on' : ''}
-                  onClick={() => patch({ dealerPays: !state.dealerPays })}
+                  key={n}
+                  className={state.koPayers === n ? 'on' : ''}
+                  onClick={() => patch({ koPayers: n })}
                 >
-                  親が払う
+                  子{n}人
                 </button>
-                {[0, 1, 2].map((n) => (
-                  <button
-                    key={n}
-                    className={state.koPayers === n ? 'on' : ''}
-                    onClick={() => patch({ koPayers: n })}
-                  >
-                    子{n}人
-                  </button>
-                ))}
-              </div>
-            ) : (
-              <div className="seg">
-                {[1, 2, 3].map((n) => (
-                  <button
-                    key={n}
-                    className={state.koPayers === n ? 'on' : ''}
-                    onClick={() => patch({ koPayers: n })}
-                  >
-                    {n}人
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-        <p className="sheet-note">ツモ払いの人数は和了済・飛びの家を除いた支払い相手の数です</p>
+              ))}
+            </div>
+          ) : (
+            <div className="seg">
+              {[1, 2, 3].map((n) => (
+                <button
+                  key={n}
+                  className={state.koPayers === n ? 'on' : ''}
+                  onClick={() => patch({ koPayers: n })}
+                >
+                  {n}人
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+        <p className="sheet-note">
+          嶺上開花はツモ側、搶槓はロン側の結果にのみ反映されます。ツモ払いの人数は和了済・飛びの家を除いた支払い相手の数です
+        </p>
       </div>
     </div>
   )

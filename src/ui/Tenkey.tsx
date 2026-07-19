@@ -78,6 +78,9 @@ export function Tenkey({ title, tiles, error, onTileTap, onCommit, onDeleteLast,
         <div className="sheet-title">
           <span>{title}</span>
           <span className="tenkey-hint">数字→m/p/s/zで入力 (0=赤5)</span>
+          <button className="sheet-close" aria-label="閉じる" onClick={onClose}>
+            ✕
+          </button>
         </div>
         {extra}
         <div className="tenkey-preview">
@@ -101,7 +104,7 @@ export function Tenkey({ title, tiles, error, onTileTap, onCommit, onDeleteLast,
               {n <= 7 && <small>{HONOR_LABELS[n - 1]}</small>}
             </button>
           ))}
-          <button className="key fn" onClick={backspace}>
+          <button className="key fn backspace" onClick={backspace}>
             ⌫
           </button>
           {[4, 5, 6].map((n) => (
@@ -110,9 +113,6 @@ export function Tenkey({ title, tiles, error, onTileTap, onCommit, onDeleteLast,
               <small>{HONOR_LABELS[n - 1]}</small>
             </button>
           ))}
-          <button className="key fn" onClick={onClose}>
-            ✕
-          </button>
           {[1, 2, 3].map((n) => (
             <button key={n} className="key" onClick={() => pushDigit(String(n))}>
               {n}

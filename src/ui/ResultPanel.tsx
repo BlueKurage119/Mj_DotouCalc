@@ -19,11 +19,12 @@ function YakuList({ c }: { c: Candidate }) {
   )
 }
 
-function CandidateCard({ c, best }: { c: Candidate; best?: boolean }) {
+function CandidateCard({ c, side, best }: { c: Candidate; side: string; best?: boolean }) {
   return (
     <div className={`candidate${best ? ' best' : ''}`}>
       <div className="candidate-head">
         <span className="interp">
+          <span className="side-badge">{side}</span>
           万能牌 = <TileImage tile={{ t: c.tile }} />
         </span>
         <span className="score">
@@ -40,44 +41,49 @@ function CandidateCard({ c, best }: { c: Candidate; best?: boolean }) {
   )
 }
 
-export function ResultPanel({
-  outcome,
-  inputComplete,
-}: {
-  outcome: CalcOutcome | null
-  inputComplete: boolean
-}) {
+/** 片側 (ツモ or ロン) の結果表示 */
+function SideResult({ outcome, side }: { outcome: CalcOutcome; side: string }) {
   const [showAll, setShowAll] = useState(false)
-  if (!inputComplete || !outcome) {
-    return (
-      <section className="result waiting">
-        <p>
-          手牌12枚で待ち分析、13枚で何切る分析、
-          <br />
-          和了牌も入れると点数計算します
-        </p>
-      </section>
-    )
-  }
   if (!outcome.ok || !outcome.best) {
     return (
-      <section className="result error">
-        <p>{outcome.error}</p>
-      </section>
+      <div className="candidate noyaku-side">
+        <div className="candidate-head">
+          <span className="interp">
+            <span className="side-badge">{side}</span>
+          </span>
+          <span className="noyaku-text">{outcome.hadNoYaku ? '役なし' : '和了になりません'}</span>
+        </div>
+      </div>
     )
   }
   const rest = outcome.candidates.slice(1)
   return (
-    <section className="result">
-      <CandidateCard c={outcome.best} best />
+    <>
+      <CandidateCard c={outcome.best} side={side} best />
       {rest.length > 0 && (
         <div className="others">
           <button className="others-toggle" onClick={() => setShowAll(!showAll)}>
-            他の解釈 {rest.length}件 {showAll ? '▲' : '▼'}
+            {side}の他の解釈 {rest.length}件 {showAll ? '▲' : '▼'}
           </button>
-          {showAll && rest.map((c) => <CandidateCard key={c.tile} c={c} />)}
+          {showAll && rest.map((c) => <CandidateCard key={c.tile} c={c} side={side} />)}
         </div>
       )}
+    </>
+  )
+}
+
+/** ツモ・ロン両方の結果を並べて表示 */
+export function ResultPanel({
+  tsumo,
+  ron,
+}: {
+  tsumo: CalcOutcome
+  ron: CalcOutcome
+}) {
+  return (
+    <section className="result">
+      <SideResult outcome={tsumo} side="ツモ" />
+      <SideResult outcome={ron} side="ロン" />
     </section>
   )
 }
