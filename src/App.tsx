@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { calcAlmighty, type MeldInput, type MeldType } from './core/almighty'
+import { analyzeDiscards, analyzeWaits, type AnalysisInput } from './core/analysis'
 import { PRESETS, type PresetId, type RuleOptions } from './core/options'
 import {
   ALL_TILES,
@@ -13,6 +14,7 @@ import {
 } from './core/tiles'
 import { AlmightyFace, TileFace } from './ui/TileFace'
 import { ResultPanel } from './ui/ResultPanel'
+import { DiscardsPanel, WaitsPanel } from './ui/AnalysisPanel'
 
 type Target = 'hand' | 'win' | 'dora' | 'ura' | { meld: number }
 
@@ -67,6 +69,8 @@ export default function App() {
   )
 
   const handCapacity = 12 - 3 * melds.length
+  // 和了牌未指定なら13枚目(ツモ番)まで入力可能 → 何切る分析
+  const handMax = winTile ? handCapacity : handCapacity + 1
   const hasOpenMeld = melds.some((m) => m.type !== 'ankan')
   const riichiOn = riichiState !== 'none'
 
@@ -109,7 +113,7 @@ export default function App() {
     if (remaining <= 0) return
     if (tile.red && redUsed.has(suitOf(tile.t))) return
     if (target === 'hand') {
-      if (concealed.length < handCapacity) setConcealed([...concealed, tile])
+      if (concealed.length < handMax) setConcealed([...concealed, tile])
     } else if (target === 'win') {
       setWinTile(tile)
     } else if (target === 'dora') {
@@ -155,6 +159,39 @@ export default function App() {
 
   const meldsComplete = melds.every((m) => m.tiles.length === meldSize(m.type))
   const inputComplete = concealed.length === handCapacity && winTile !== null && meldsComplete
+
+  const analysisInput: AnalysisInput = useMemo(
+    () => ({
+      concealed,
+      melds: melds as MeldInput[],
+      seatWind,
+      roundWind,
+      riichi: riichiState === 'riichi',
+      doubleRiichi: riichiState === 'double',
+      ippatsu: riichiOn && ippatsu,
+      afterKan,
+      lastTile,
+      doraIndicators: doraInd,
+      uraIndicators: riichiOn ? uraInd : [],
+      koPayers,
+      dealerPays,
+    }),
+    [
+      concealed, melds, seatWind, roundWind, riichiState, riichiOn, ippatsu,
+      afterKan, lastTile, doraInd, uraInd, koPayers, dealerPays,
+    ],
+  )
+
+  // 和了牌未指定: 12枚なら聴牌分析、13枚なら何切る分析
+  const waitsOutcome = useMemo(() => {
+    if (winTile || !meldsComplete || concealed.length !== handCapacity) return null
+    return analyzeWaits(analysisInput, options)
+  }, [winTile, meldsComplete, concealed.length, handCapacity, analysisInput, options])
+
+  const discardsOutcome = useMemo(() => {
+    if (winTile || !meldsComplete || concealed.length !== handCapacity + 1) return null
+    return analyzeDiscards(analysisInput)
+  }, [winTile, meldsComplete, concealed.length, handCapacity, analysisInput])
 
   const outcome = useMemo(() => {
     if (!inputComplete || !winTile) return null
@@ -205,6 +242,17 @@ export default function App() {
   }
 
   const targetIsMeld = typeof target === 'object'
+
+  function pickWait(tile: TileId) {
+    setWinTile({ t: tile })
+  }
+
+  function discardTile(tile: TileId) {
+    // 赤でない方を優先して1枚外す
+    let idx = concealed.findIndex((x) => x.t === tile && !x.red)
+    if (idx < 0) idx = concealed.findIndex((x) => x.t === tile)
+    if (idx >= 0) setConcealed(concealed.filter((_, j) => j !== idx))
+  }
 
   return (
     <div className="app">
@@ -304,6 +352,12 @@ export default function App() {
         >
           <div className="zone-label">
             手牌 {concealed.length}/{handCapacity} <span className="plus">+</span> <AlmightyFace />
+            {concealed.length === handCapacity + 1 && (
+              <span className="mode-badge">ツモ番: 何切る分析</span>
+            )}
+            {!winTile && concealed.length === handCapacity && (
+              <span className="mode-badge">聴牌分析</span>
+            )}
           </div>
           <div className="zone-tiles">
             {sortedConcealed.map(({ x, i }) => (
@@ -580,7 +634,15 @@ export default function App() {
         )}
       </section>
 
-      <ResultPanel outcome={outcome} inputComplete={inputComplete} />
+      {winTile ? (
+        <ResultPanel outcome={outcome} inputComplete={inputComplete} />
+      ) : waitsOutcome ? (
+        <WaitsPanel outcome={waitsOutcome} onPickWait={pickWait} />
+      ) : discardsOutcome ? (
+        <DiscardsPanel outcome={discardsOutcome} onDiscard={discardTile} />
+      ) : (
+        <ResultPanel outcome={null} inputComplete={false} />
+      )}
 
       <footer className="footer">
         <p>万能牌は最も点数が高くなる牌として自動計算されます ({PRESETS[presetId].label}ルール)</p>

@@ -51,7 +51,11 @@ export function ResultPanel({
   if (!inputComplete || !outcome) {
     return (
       <section className="result waiting">
-        <p>手牌と和了牌を入力すると自動で計算します</p>
+        <p>
+          手牌12枚で待ち分析、13枚で何切る分析、
+          <br />
+          和了牌も入れると点数計算します
+        </p>
       </section>
     )
   }
