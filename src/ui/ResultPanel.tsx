@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import type { CalcOutcome, Candidate } from '../core/almighty'
 import { YAKU_NAMES } from '../core/yakuNames'
-import { TileFace } from './TileFace'
+import { TileImage } from './TileImage'
 
 function YakuList({ c }: { c: Candidate }) {
   const entries = Object.entries(c.yaku)
@@ -24,7 +24,7 @@ function CandidateCard({ c, best }: { c: Candidate; best?: boolean }) {
     <div className={`candidate${best ? ' best' : ''}`}>
       <div className="candidate-head">
         <span className="interp">
-          万能牌 = <TileFace tile={{ t: c.tile }} />
+          万能牌 = <TileImage tile={{ t: c.tile }} />
         </span>
         <span className="score">
           {c.payment.rank && <em className="rank">{c.payment.rank}</em>}
