@@ -49,7 +49,10 @@ body {
 
 button {
   font-family: inherit;
+  color: inherit;
   cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
 }
 
 /* ---------- app bar ---------- */
@@ -71,23 +74,27 @@ button {
   font-weight: 700;
 }
 
-.preset-select {
-  appearance: none;
+.preset-seg {
+  display: flex;
   background: rgb(255 255 255 / 18%);
-  color: var(--on-primary);
-  border: none;
-  border-radius: 8px;
-  font-size: 1.05rem;
-  font-weight: 700;
-  padding: 7px 30px 7px 12px;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='white'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 10px center;
-  background-size: 10px;
+  border-radius: 999px;
+  padding: 3px;
+  gap: 2px;
 }
 
-.preset-select option {
-  color: #222;
+.preset-seg button {
+  border: none;
+  background: none;
+  color: var(--on-primary);
+  font-size: 0.88rem;
+  font-weight: 700;
+  padding: 6px 12px;
+  border-radius: 999px;
+}
+
+.preset-seg button.on {
+  background: var(--surface);
+  color: var(--primary-dark);
 }
 
 .text-btn {
@@ -153,16 +160,6 @@ button {
 
 .chip-value .tile-img {
   width: 24px;
-}
-
-.dealer-mini {
-  font-style: normal;
-  font-size: 0.7rem;
-  color: var(--gold);
-  border: 1px solid var(--gold);
-  border-radius: 5px;
-  padding: 0 4px;
-  margin-left: 5px;
 }
 
 /* ---------- cards ---------- */
@@ -283,36 +280,6 @@ button {
   display: block;
 }
 
-.almighty-badge {
-  font-size: 0.68rem;
-  font-weight: 700;
-  color: #fff;
-  background: linear-gradient(135deg, #c9a227, #8a6d1a);
-  border-radius: 6px;
-  padding: 2px 7px;
-  letter-spacing: 1px;
-}
-
-/* ---------- FAB ---------- */
-.fab {
-  position: fixed;
-  right: max(16px, calc(50% - 264px));
-  bottom: 20px;
-  width: 56px;
-  height: 56px;
-  border-radius: 18px;
-  border: none;
-  background: var(--primary);
-  color: var(--on-primary);
-  font-size: 1.4rem;
-  box-shadow: 0 4px 12px rgb(0 0 0 / 30%);
-  z-index: 20;
-}
-
-.fab:active {
-  transform: scale(0.95);
-}
-
 /* ---------- bottom sheet ---------- */
 .sheet-overlay {
   position: fixed;
@@ -343,12 +310,6 @@ button {
 
 .sheet-title .text-btn {
   color: var(--primary);
-}
-
-.tenkey-hint {
-  font-size: 0.72rem;
-  color: var(--sub);
-  font-weight: 400;
 }
 
 .sheet-note {
@@ -392,6 +353,61 @@ button {
   color: var(--error);
   font-size: 0.8rem;
   margin: -2px 0 6px;
+}
+
+.help-btn {
+  margin-left: auto;
+  color: var(--sub);
+}
+
+.help-balloon {
+  background: var(--primary-container);
+  border-radius: 12px;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+}
+
+.help-balloon-title {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--primary-dark);
+  margin-bottom: 6px;
+}
+
+.help-examples {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.help-examples li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.help-input {
+  font-family: 'Roboto Mono', monospace;
+  font-weight: 700;
+  font-size: 0.85rem;
+  min-width: 4.2em;
+}
+
+.help-tiles {
+  display: flex;
+  gap: 1px;
+}
+
+.help-tiles .tile-img {
+  width: 22px;
+}
+
+.help-desc {
+  font-size: 0.78rem;
+  color: var(--sub);
 }
 
 .tenkey-grid {
@@ -438,13 +454,9 @@ button {
   color: var(--sub);
 }
 
-.key.enter,
-.key.backspace {
-  grid-row: span 2;
-  height: auto;
-}
-
 .key.enter {
+  grid-column: 4;
+  grid-row: 4;
   background: var(--primary);
   color: var(--on-primary);
 }
@@ -462,7 +474,8 @@ button {
 }
 
 .key.zero {
-  grid-column: span 3;
+  grid-column: 2;
+  grid-row: 5;
 }
 
 .meld-type-seg {
@@ -618,13 +631,6 @@ button {
   gap: 8px;
 }
 
-.score .rank {
-  font-style: normal;
-  color: var(--error);
-  font-weight: 700;
-  font-size: 0.95rem;
-}
-
 .score strong {
   font-size: 1.5rem;
 }
@@ -634,7 +640,21 @@ button {
   font-size: 0.85rem;
   color: var(--sub);
   display: flex;
+  align-items: baseline;
   justify-content: space-between;
+}
+
+.candidate-sub .rank {
+  font-style: normal;
+  color: var(--error);
+  font-weight: 700;
+  font-size: 0.95rem;
+  margin-left: 6px;
+}
+
+.yakuman-rank {
+  font-size: 1rem;
+  margin-left: 0;
 }
 
 .side-badge {
@@ -678,12 +698,9 @@ button {
   padding: 2px 0;
 }
 
-.others {
-  margin-top: 8px;
-}
-
 .others-toggle {
   width: 100%;
+  margin-top: 8px;
   padding: 9px;
   border: 1px solid var(--outline);
   border-radius: 10px;
@@ -695,6 +712,10 @@ button {
 
 .others .candidate {
   opacity: 0.88;
+}
+
+.others .candidate:first-child {
+  margin-top: 0;
 }
 
 .analysis-card {
@@ -777,29 +798,34 @@ button {
   font-size: 0.75rem;
   color: var(--sub);
   white-space: nowrap;
+  min-width: 3.6em;
 }
 
-/* 待ち一覧: 点数を右寄せ2カラムで縦のラインを揃える */
+/* 待ち一覧: 「ロン」「ツモ」ラベルを左端で揃え、点数は右揃えにする */
 .wait-row.wait-columns {
   display: grid;
-  grid-template-columns: 40px auto 1fr minmax(6.4em, auto);
+  grid-template-columns: 40px 3.6em 1fr minmax(6.4em, auto);
   align-items: center;
-}
-
-.wait-columns .wait-score {
-  justify-content: flex-end;
 }
 
 .wait-score {
   font-size: 0.8rem;
   display: flex;
   align-items: baseline;
-  gap: 3px;
+  justify-content: space-between;
+  gap: 4px;
   white-space: nowrap;
 }
 
-.wait-score:first-of-type {
-  margin-left: auto;
+.wait-score-label {
+  color: var(--sub);
+  font-weight: 700;
+}
+
+.wait-score-value {
+  display: flex;
+  align-items: baseline;
+  gap: 3px;
 }
 
 .wait-score strong {
@@ -813,12 +839,7 @@ button {
   font-weight: 700;
 }
 
-.wait-score.noyaku {
-  margin-left: auto;
-}
-
-.wait-score.noyaku em {
-  font-style: normal;
+.wait-score.noyaku .wait-score-value {
   color: var(--sub);
   font-size: 0.75rem;
 }

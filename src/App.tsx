@@ -11,16 +11,18 @@ import {
   type TileInstance,
 } from './core/tiles'
 import { DiscardsPanel, WaitsPanel } from './ui/AnalysisPanel'
+import { IconClose, IconDelete, IconSettings } from './ui/icons'
 import { LuckSheet, luckSummary, type LuckState } from './ui/LuckSheet'
 import { ResultPanel } from './ui/ResultPanel'
 import { SettingsView } from './ui/SettingsView'
 import { Tenkey } from './ui/Tenkey'
-import { AlmightyBadge, TileImage } from './ui/TileImage'
+import { TileImage } from './ui/TileImage'
 
 type TenkeyTarget = 'hand' | 'dora' | 'ura' | { meld: number }
 type Popup = null | { kind: 'tenkey'; target: TenkeyTarget } | { kind: 'luck' }
 
 const WIND_LABELS: Record<number, string> = { 28: '東', 29: '南', 30: '西', 31: '北' }
+const WINDS: TileId[] = [EAST, EAST + 1, EAST + 2, NORTH]
 const MELD_LABELS: Record<MeldType, string> = {
   chi: 'チー',
   pon: 'ポン',
@@ -34,7 +36,6 @@ interface EditableMeld {
 }
 
 const meldSize = (t: MeldType) => (t === 'chi' || t === 'pon' ? 3 : 4)
-const nextWind = (w: TileId): TileId => (w === NORTH ? EAST : w + 1)
 
 export default function App() {
   const [view, setView] = useState<'main' | 'settings'>('main')
@@ -295,6 +296,27 @@ export default function App() {
     setTenkeyError(null)
   }
 
+  /** テンキーのACキー: 対象ゾーンの牌のみ全消去 */
+  function clearZone(target: TenkeyTarget) {
+    if (target === 'hand') setHand([])
+    else if (target === 'dora') setDoraInd([])
+    else if (target === 'ura') setUraInd([])
+    else {
+      const meld = melds[target.meld]
+      if (!meld) return
+      const next = melds.slice()
+      next[target.meld] = { ...meld, tiles: [] }
+      setMelds(next)
+    }
+    setTenkeyError(null)
+  }
+
+  function discardTile(t: TileId) {
+    let idx = hand.findIndex((x) => x.t === t && !x.red)
+    if (idx < 0) idx = hand.findIndex((x) => x.t === t)
+    if (idx >= 0) setHand(hand.filter((_, j) => j !== idx))
+  }
+
   // ---------- 計算 ----------
   const meldsComplete = activeMelds.every((m) => m.tiles.length === meldSize(m.type))
   const baseInput = useMemo(
@@ -349,9 +371,9 @@ export default function App() {
     (scoreRon !== null && (scoreRon.ok || scoreRon.hadNoYaku))
 
   const discardsOutcome = useMemo(() => {
-    if (!scoreTsumo || isWin) return null
+    if (!scoreTsumo) return null
     return analyzeDiscards({ ...baseInput, concealed: hand })
-  }, [scoreTsumo, isWin, baseInput, hand])
+  }, [scoreTsumo, baseInput, hand])
 
   // 12枚相当: 聴牌分析
   const waitsOutcome = useMemo(() => {
@@ -409,48 +431,57 @@ export default function App() {
   return (
     <div className={`app theme-${presetId}`}>
       <header className="appbar">
-        <select
-          className="preset-select"
-          value={presetId}
-          onChange={(e) => selectPreset(e.target.value as PresetId)}
-        >
+        <div className="preset-seg">
           {(Object.keys(PRESETS) as PresetId[]).map((id) => (
-            <option key={id} value={id}>
+            <button
+              key={id}
+              className={presetId === id ? 'on' : ''}
+              onClick={() => selectPreset(id)}
+            >
               {PRESETS[id].label}
-            </option>
+            </button>
           ))}
-        </select>
+        </div>
         <button className="text-btn" onClick={() => setView('settings')}>
-          ⚙ 設定
+          <IconSettings /> 設定
         </button>
       </header>
 
       <main className="content">
+        <div className="seg-row">
+          <span className="seg-label">場風</span>
+          <div className="seg">
+            {WINDS.map((w) => (
+              <button
+                key={w}
+                className={roundWind === w ? 'on' : ''}
+                disabled={!options.roundWindYaku}
+                onClick={() => setRoundWind(w)}
+              >
+                {WIND_LABELS[w]}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="seg-row">
+          <span className="seg-label">自風</span>
+          <div className="seg">
+            {WINDS.map((w) => (
+              <button
+                key={w}
+                className={seatWind === w ? 'on' : ''}
+                onClick={() => {
+                  setSeatWind(w)
+                  if (isStandard) setLuck((l) => ({ ...l, koPayers: w === EAST ? 3 : 2 }))
+                }}
+              >
+                {WIND_LABELS[w]}
+              </button>
+            ))}
+          </div>
+        </div>
+
         <div className="chip-grid">
-          <button
-            className={`chip${options.roundWindYaku ? '' : ' disabled'}`}
-            disabled={!options.roundWindYaku}
-            onClick={() => setRoundWind(nextWind(roundWind))}
-          >
-            <span className="chip-label">場風</span>
-            <span className="chip-value">
-              {options.roundWindYaku ? WIND_LABELS[roundWind] : 'なし'}
-            </span>
-          </button>
-          <button
-            className="chip"
-            onClick={() => {
-              const w = nextWind(seatWind)
-              setSeatWind(w)
-              if (isStandard) setLuck((l) => ({ ...l, koPayers: w === EAST ? 3 : 2 }))
-            }}
-          >
-            <span className="chip-label">自風</span>
-            <span className="chip-value">
-              {WIND_LABELS[seatWind]}
-              {isStandard && <em className="dealer-mini">{isDealer ? '親' : '子'}</em>}
-            </span>
-          </button>
           <button
             className="chip"
             onClick={() => {
@@ -492,16 +523,17 @@ export default function App() {
           }}
         >
           <div className="card-label">
-            手牌（＋和了牌） {hand.length}/{cap} <AlmightyBadge />
+            手牌（＋和了牌） {hand.length}/{cap}
             {hand.length > 0 && (
               <span
                 className="text-btn clear-mini"
+                aria-label="全消去"
                 onClick={(e) => {
                   e.stopPropagation()
                   clearAll()
                 }}
               >
-                全消去
+                <IconDelete />
               </span>
             )}
           </div>
@@ -549,12 +581,13 @@ export default function App() {
                 副露{meld.tiles.length > 0 ? ` (${MELD_LABELS[meld.type]})` : ''}
                 <span
                   className="text-btn clear-mini"
+                  aria-label="副露を削除"
                   onClick={(e) => {
                     e.stopPropagation()
                     removeMeld(i)
                   }}
                 >
-                  ✕
+                  <IconClose />
                 </span>
               </div>
               <div className="meld-tiles">
@@ -580,16 +613,19 @@ export default function App() {
 
         <div className="result-area">
           {isWin && scoreTsumo && scoreRon ? (
-            <ResultPanel tsumo={scoreTsumo} ron={scoreRon} kiriage={options.kiriage} />
+            <>
+              <ResultPanel
+                tsumo={scoreTsumo}
+                ron={scoreRon}
+                kiriage={options.kiriage}
+                winTile={hand[hand.length - 1]}
+              />
+              {discardsOutcome && (
+                <DiscardsPanel outcome={discardsOutcome} showBanner={false} onDiscard={discardTile} />
+              )}
+            </>
           ) : discardsOutcome ? (
-            <DiscardsPanel
-              outcome={discardsOutcome}
-              onDiscard={(t) => {
-                let idx = hand.findIndex((x) => x.t === t && !x.red)
-                if (idx < 0) idx = hand.findIndex((x) => x.t === t)
-                if (idx >= 0) setHand(hand.filter((_, j) => j !== idx))
-              }}
-            />
+            <DiscardsPanel outcome={discardsOutcome} onDiscard={discardTile} />
           ) : waitsOutcome ? (
             <WaitsPanel outcome={waitsOutcome} onPickWait={(t) => addTiles('hand', [{ t }])} />
           ) : (
@@ -602,17 +638,6 @@ export default function App() {
         </div>
       </main>
 
-      <button
-        className="fab"
-        aria-label="牌を入力"
-        onClick={() => {
-          setTenkeyError(null)
-          setPopup({ kind: 'tenkey', target: 'hand' })
-        }}
-      >
-        ✏️
-      </button>
-
       {popup?.kind === 'tenkey' && (
         <Tenkey
           title={tenkeyTitle}
@@ -621,6 +646,7 @@ export default function App() {
           onTileTap={(i) => tapZoneTile(popup.target, i)}
           onCommit={(tiles) => addTiles(popup.target, tiles)}
           onDeleteLast={() => deleteLast(popup.target)}
+          onClearZone={() => clearZone(popup.target)}
           onClose={closeTenkey}
           extra={
             meldTarget !== null && melds[meldTarget] ? (
@@ -651,10 +677,7 @@ export default function App() {
       )}
 
       <footer className="footer">
-        <p>
-          万能牌は最も点数が高くなる牌として自動計算 ({PRESETS[presetId].label}ルール) ・ 牌画:
-          FluffyStuff riichi-mahjong-tiles (public domain)
-        </p>
+        <p>牌画: FluffyStuff riichi-mahjong-tiles (public domain)</p>
       </footer>
     </div>
   )

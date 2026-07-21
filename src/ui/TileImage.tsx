@@ -72,8 +72,3 @@ export function TileImage({ tile }: { tile: TileInstance }) {
     </span>
   )
 }
-
-/** 万能牌バッジ */
-export function AlmightyBadge() {
-  return <span className="almighty-badge">万能</span>
-}

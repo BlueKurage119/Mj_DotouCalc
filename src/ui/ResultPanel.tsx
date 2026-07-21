@@ -1,7 +1,9 @@
 import { useState } from 'react'
 import type { CalcOutcome, Candidate } from '../core/almighty'
 import { nextTierHint } from '../core/payment'
+import type { TileInstance } from '../core/tiles'
 import { YAKU_NAMES } from '../core/yakuNames'
+import { IconClose } from './icons'
 import { TileImage } from './TileImage'
 
 function YakuList({ c }: { c: Candidate }) {
@@ -20,37 +22,57 @@ function YakuList({ c }: { c: Candidate }) {
   )
 }
 
+/** ツモの点数申告 (例: 700オール / 子700・親1300) から「子」「親」の見出しを外し、数値をカンマ区切りにする */
+function formatTsumoAnnounce(detail: string): string {
+  return detail
+    .replace(/\s*\(.*\)$/, '')
+    .replace(/[子親]/g, '')
+    .replace(/\d+/g, (m) => Number(m).toLocaleString())
+}
+
 function CandidateCard({
   c,
   side,
+  winTile,
   best,
   kiriage,
 }: {
   c: Candidate
   side: 'ツモ' | 'ロン'
+  winTile: TileInstance
   best?: boolean
   kiriage: boolean
 }) {
-  // ツモは点数申告用語 (例: 700オール / 子700・親1300) を主表示にする
-  const announce = c.payment.detail.replace(/\s*\(.*\)$/, '')
   const hint = best ? nextTierHint(c.han, c.fu, c.yakuman, kiriage) : null
+  const isYakuman = c.yakuman > 0
   return (
     <div className={`candidate${best ? ' best' : ''}`}>
       <div className="candidate-head">
         <span className="interp">
           <span className="side-badge">{side}</span>
-          万能牌 = <TileImage tile={{ t: c.tile }} />
+          <TileImage tile={winTile} />
+          <TileImage tile={{ t: c.tile }} />
         </span>
         <span className="score">
-          {c.payment.rank && <em className="rank">{c.payment.rank}</em>}
-          <strong>{side === 'ツモ' ? announce : `${c.payment.total.toLocaleString()}点`}</strong>
+          <strong>
+            {side === 'ツモ'
+              ? formatTsumoAnnounce(c.payment.detail)
+              : c.payment.total.toLocaleString()}
+          </strong>
         </span>
       </div>
       <div className="candidate-sub">
-        <span>
-          {c.yakuman > 0 ? `役満×${c.yakuman}` : `${c.han}翻${c.fu > 0 ? ` ${c.fu}符` : ''}`}
-        </span>
-        <span className="pay-detail">合計 {c.payment.total.toLocaleString()}点</span>
+        {isYakuman ? (
+          <em className="rank yakuman-rank">{c.payment.rank}</em>
+        ) : (
+          <span>
+            {c.han}翻{c.fu > 0 ? ` ${c.fu}符` : ''}
+            {c.payment.rank && <em className="rank">{c.payment.rank}</em>}
+          </span>
+        )}
+        {side === 'ツモ' && (
+          <span className="pay-detail">合計 {c.payment.total.toLocaleString()}点</span>
+        )}
       </div>
       {hint && <div className="tier-hint">{hint}</div>}
       <YakuList c={c} />
@@ -62,13 +84,15 @@ function CandidateCard({
 function SideResult({
   outcome,
   side,
+  winTile,
   kiriage,
 }: {
   outcome: CalcOutcome
   side: 'ツモ' | 'ロン'
+  winTile: TileInstance
   kiriage: boolean
 }) {
-  const [showAll, setShowAll] = useState(false)
+  const [sheetOpen, setSheetOpen] = useState(false)
   if (!outcome.ok || !outcome.best) {
     return (
       <div className="candidate noyaku-side">
@@ -84,15 +108,34 @@ function SideResult({
   const rest = outcome.candidates.slice(1)
   return (
     <>
-      <CandidateCard c={outcome.best} side={side} best kiriage={kiriage} />
+      <CandidateCard c={outcome.best} side={side} winTile={winTile} best kiriage={kiriage} />
       {rest.length > 0 && (
-        <div className="others">
-          <button className="others-toggle" onClick={() => setShowAll(!showAll)}>
-            {side}の他の解釈 {rest.length}件 {showAll ? '▲' : '▼'}
+        <>
+          <button className="others-toggle" onClick={() => setSheetOpen(true)}>
+            {side}の他の解釈 {rest.length}件
           </button>
-          {showAll &&
-            rest.map((c) => <CandidateCard key={c.tile} c={c} side={side} kiriage={kiriage} />)}
-        </div>
+          {sheetOpen && (
+            <div className="sheet-overlay" onClick={() => setSheetOpen(false)}>
+              <div className="sheet" onClick={(e) => e.stopPropagation()}>
+                <div className="sheet-title">
+                  <span>{side}の他の解釈</span>
+                  <button
+                    className="sheet-close"
+                    aria-label="閉じる"
+                    onClick={() => setSheetOpen(false)}
+                  >
+                    <IconClose />
+                  </button>
+                </div>
+                <div className="others">
+                  {rest.map((c) => (
+                    <CandidateCard key={c.tile} c={c} side={side} winTile={winTile} kiriage={kiriage} />
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+        </>
       )}
     </>
   )
@@ -102,16 +145,18 @@ function SideResult({
 export function ResultPanel({
   tsumo,
   ron,
+  winTile,
   kiriage,
 }: {
   tsumo: CalcOutcome
   ron: CalcOutcome
+  winTile: TileInstance
   kiriage: boolean
 }) {
   return (
     <section className="result">
-      <SideResult outcome={tsumo} side="ツモ" kiriage={kiriage} />
-      <SideResult outcome={ron} side="ロン" kiriage={kiriage} />
+      <SideResult outcome={tsumo} side="ツモ" winTile={winTile} kiriage={kiriage} />
+      <SideResult outcome={ron} side="ロン" winTile={winTile} kiriage={kiriage} />
     </section>
   )
 }

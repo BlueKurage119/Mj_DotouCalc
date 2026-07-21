@@ -6,14 +6,18 @@ function ScoreCell({ label, total, rank }: { label: string; total?: number; rank
   if (total === undefined) {
     return (
       <span className="wait-score noyaku">
-        {label} <em>役なし</em>
+        <span className="wait-score-label">{label}</span>
+        <span className="wait-score-value">役なし</span>
       </span>
     )
   }
   return (
     <span className="wait-score">
-      {label} <strong>{total.toLocaleString()}</strong>
-      {rank && <em className="rank">{rank}</em>}
+      <span className="wait-score-label">{label}</span>
+      <span className="wait-score-value">
+        <strong>{total.toLocaleString()}</strong>
+        {rank && <em className="rank">{rank}</em>}
+      </span>
     </span>
   )
 }
@@ -75,9 +79,12 @@ export function WaitsPanel({
 export function DiscardsPanel({
   outcome,
   onDiscard,
+  showBanner = true,
 }: {
   outcome: DiscardsOutcome
   onDiscard: (tile: TileId) => void
+  /** 「既にツモ和了できます」バナーの表示可否 (既に和了表示中なら不要) */
+  showBanner?: boolean
 }) {
   if (!outcome.ok) {
     return (
@@ -88,7 +95,7 @@ export function DiscardsPanel({
   }
   return (
     <section className="result">
-      {outcome.tsumoWinPossible && (
+      {showBanner && outcome.tsumoWinPossible && (
         <div className="analysis-banner">この手は万能牌の解釈により既にツモ和了できます</div>
       )}
       <div className="analysis-card">
@@ -112,7 +119,9 @@ export function DiscardsPanel({
                       <TileImage key={w} tile={{ t: w }} />
                     ))}
                   </span>
-                  <span className="wait-left">計{d.totalRemaining}枚</span>
+                  <span className="wait-left">
+                    {d.waits.length}種{d.totalRemaining}枚
+                  </span>
                 </button>
               </li>
             ))}
