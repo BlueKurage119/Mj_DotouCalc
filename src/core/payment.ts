@@ -78,7 +78,8 @@ export function calcPayment(p: PaymentInput): Payment {
   if (p.isDealer) {
     if (p.isTsumo) {
       const each = ceil100(base * 2)
-      return { total: each * p.koPayers, detail: `${each}オール (${p.koPayers}人払い)`, rank, base }
+      const detail = p.koPayers >= 2 ? `${each}オール (${p.koPayers}人払い)` : `${each} (子1人)`
+      return { total: each * p.koPayers, detail, rank, base }
     }
     const total = ceil100(base * 6)
     return { total, detail: `ロン ${total}`, rank, base }
@@ -87,9 +88,16 @@ export function calcPayment(p: PaymentInput): Payment {
     const koEach = ceil100(base)
     const oya = p.dealerPays ? ceil100(base * 2) : 0
     const total = koEach * p.koPayers + oya
-    const detail = p.dealerPays
-      ? `子${koEach}・親${oya} (子${p.koPayers}人)`
-      : `子${koEach}×${p.koPayers} (親は支払いなし)`
+    let detail: string
+    if (p.dealerPays && p.koPayers >= 1) {
+      detail = `子${koEach}・親${oya} (子${p.koPayers}人)`
+    } else if (p.dealerPays) {
+      detail = `親${oya} (親のみ)`
+    } else if (p.koPayers >= 2) {
+      detail = `子${koEach}オール (親は支払いなし)`
+    } else {
+      detail = `子${koEach} (親は支払いなし)`
+    }
     return { total, detail, rank, base }
   }
   const total = ceil100(base * 4)

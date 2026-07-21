@@ -113,7 +113,14 @@ export function LuckSheet({
               <div className="seg wrap">
                 <button
                   className={state.dealerPays ? 'on' : ''}
-                  onClick={() => patch({ dealerPays: !state.dealerPays })}
+                  onClick={() => {
+                    const nextDealerPays = !state.dealerPays
+                    patch(
+                      !nextDealerPays && state.koPayers === 0
+                        ? { dealerPays: nextDealerPays, koPayers: 1 }
+                        : { dealerPays: nextDealerPays },
+                    )
+                  }}
                 >
                   親が払う
                 </button>
@@ -121,6 +128,7 @@ export function LuckSheet({
                   <button
                     key={n}
                     className={state.koPayers === n ? 'on' : ''}
+                    disabled={n === 0 && !state.dealerPays}
                     onClick={() => patch({ koPayers: n })}
                   >
                     子{n}人
