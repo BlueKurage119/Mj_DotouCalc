@@ -418,9 +418,12 @@ export default function App() {
         ? hand.indexOf(scoreTsumo.winTile)
         : hand.length - 1
       : -1
-    const body = winSeparate ? hand.filter((_, i) => i !== winIndex) : hand
-    const sorted = body
-      .map((x) => ({ x, i: hand.indexOf(x) }))
+    // 元インデックスを map の第2引数で先に確定させてから除外・ソートする。
+    // hand.indexOf(x) は参照一致に依存するため、同一参照が重複した場合に誤った
+    // インデックスを返し得る。配列位置を直接使うことでその懸念を排除する (#19)。
+    const sorted = hand
+      .map((x, i) => ({ x, i }))
+      .filter(({ i }) => i !== winIndex)
       .sort((a, b) => compareTiles(a.x, b.x))
     return { sorted, win: winSeparate ? { x: hand[winIndex], i: winIndex } : null }
   }, [hand, cap, scoreTsumo])
