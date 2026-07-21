@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react'
-import type { TileInstance } from '../core/tiles'
+import type { TileInstance, TileId } from '../core/tiles'
 import { TileImage } from './TileImage'
+import { IconClose, IconBackspace, IconReturn, IconHelp } from './icons'
 
 const HONOR_LABELS = ['東', '南', '西', '北', '白', '發', '中']
 
@@ -11,11 +12,11 @@ function resolve(buffer: string, suit: 'm' | 'p' | 's' | 'z'): TileInstance[] {
   for (const ch of buffer) {
     const n = Number(ch)
     if (suit === 'z') {
-      if (n >= 1 && n <= 7) out.push({ t: 27 + n })
+      if (n >= 1 && n <= 7) out.push({ t: (27 + n) as TileId })
       continue // 0,8,9 は字牌に存在しないので無視
     }
-    if (n === 0) out.push({ t: offset + 5, red: true })
-    else out.push({ t: offset + n })
+    if (n === 0) out.push({ t: (offset + 5) as TileId, red: true })
+    else out.push({ t: (offset + n) as TileId })
   }
   return out
 }
@@ -30,13 +31,25 @@ export interface TenkeyProps {
   onTileTap?: (index: number) => void
   onCommit: (tiles: TileInstance[]) => void
   onDeleteLast: () => void
+  onClearZone: () => void
   onClose: () => void
   /** タイトル下に差し込む追加UI (副露種別チップなど) */
   extra?: ReactNode
 }
 
-export function Tenkey({ title, tiles, error, onTileTap, onCommit, onDeleteLast, onClose, extra }: TenkeyProps) {
+export function Tenkey({
+  title,
+  tiles,
+  error,
+  onTileTap,
+  onCommit,
+  onDeleteLast,
+  onClearZone,
+  onClose,
+  extra,
+}: TenkeyProps) {
   const [buffer, setBuffer] = useState('')
+  const [showHelp, setShowHelp] = useState(false)
 
   function pushDigit(d: string) {
     if (buffer.length < 14) setBuffer(buffer + d)
@@ -61,6 +74,8 @@ export function Tenkey({ title, tiles, error, onTileTap, onCommit, onDeleteLast,
         commitSuit(e.key.toLowerCase() as 'm' | 'p' | 's' | 'z')
       } else if (e.key === 'Backspace') {
         backspace()
+      } else if (e.key === 'a' || e.key === 'A' || e.key === 'Delete') {
+        onClearZone()
       } else if (e.key === 'Enter' || e.key === 'Escape') {
         onClose()
       } else {
@@ -78,11 +93,38 @@ export function Tenkey({ title, tiles, error, onTileTap, onCommit, onDeleteLast,
         <div className="sheet-title">
           <span>{title}</span>
           <span className="tenkey-hint">数字→m/p/s/zで入力 (0=赤5)</span>
-          <button className="sheet-close" aria-label="閉じる" onClick={onClose}>
-            ✕
-          </button>
+          <div className="sheet-title-btns">
+            <button className="sheet-help-btn" aria-label="ヘルプ" onClick={() => setShowHelp(!showHelp)}>
+              <IconHelp />
+            </button>
+            <button className="sheet-close" aria-label="閉じる" onClick={onClose}>
+              <IconClose />
+            </button>
+          </div>
         </div>
         {extra}
+
+        {showHelp && (
+          <div className="help-balloon">
+            <div className="help-balloon-title">入力例：</div>
+            <div className="help-balloon-item">
+              <code>123m</code> → <TileImage tile={{ t: 1 }} /><TileImage tile={{ t: 2 }} /><TileImage tile={{ t: 3 }} /> 一二三萬
+            </div>
+            <div className="help-balloon-item">
+              <code>406p</code> → <TileImage tile={{ t: 13 }} /><TileImage tile={{ t: 14, red: true }} /><TileImage tile={{ t: 15 }} /> 四・赤五・六筒
+            </div>
+            <div className="help-balloon-item">
+              <code>789s</code> → <TileImage tile={{ t: 25 }} /><TileImage tile={{ t: 26 }} /><TileImage tile={{ t: 27 }} /> 七八九索
+            </div>
+            <div className="help-balloon-item">
+              <code>1234z</code> → <TileImage tile={{ t: 28 }} /><TileImage tile={{ t: 29 }} /><TileImage tile={{ t: 30 }} /><TileImage tile={{ t: 31 }} /> 東南西北
+            </div>
+            <div className="help-balloon-item">
+              <code>567z</code> → <TileImage tile={{ t: 32 }} /><TileImage tile={{ t: 33 }} /><TileImage tile={{ t: 34 }} /> 白發中
+            </div>
+          </div>
+        )}
+
         <div className="tenkey-preview">
           {tiles.map((x, i) => (
             <button key={i} className="tile-btn" onClick={() => onTileTap?.(i)}>
@@ -96,6 +138,7 @@ export function Tenkey({ title, tiles, error, onTileTap, onCommit, onDeleteLast,
           {(['m', 'p', 's', 'z'] as const).map((s) => (
             <button key={s} className="key suit" onClick={() => commitSuit(s)}>
               {s}
+              <small>{s === 'm' ? '萬子' : s === 'p' ? '筒子' : s === 's' ? '索子' : '字牌'}</small>
             </button>
           ))}
           {[7, 8, 9].map((n) => (
@@ -105,7 +148,7 @@ export function Tenkey({ title, tiles, error, onTileTap, onCommit, onDeleteLast,
             </button>
           ))}
           <button className="key fn backspace" onClick={backspace}>
-            ⌫
+            <IconBackspace />
           </button>
           {[4, 5, 6].map((n) => (
             <button key={n} className="key" onClick={() => pushDigit(String(n))}>
@@ -113,6 +156,9 @@ export function Tenkey({ title, tiles, error, onTileTap, onCommit, onDeleteLast,
               <small>{HONOR_LABELS[n - 1]}</small>
             </button>
           ))}
+          <button className="key fn clear-zone" onClick={onClearZone}>
+            AC
+          </button>
           {[1, 2, 3].map((n) => (
             <button key={n} className="key" onClick={() => pushDigit(String(n))}>
               {n}
@@ -120,11 +166,13 @@ export function Tenkey({ title, tiles, error, onTileTap, onCommit, onDeleteLast,
             </button>
           ))}
           <button className="key enter" onClick={onClose}>
-            ↵
+            <IconReturn />
           </button>
+          <div className="key-empty" />
           <button className="key zero" onClick={() => pushDigit('0')}>
             0<small>赤5</small>
           </button>
+          <div className="key-empty" />
         </div>
       </div>
     </div>

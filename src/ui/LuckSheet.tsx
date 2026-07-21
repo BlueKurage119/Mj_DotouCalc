@@ -106,43 +106,47 @@ export function LuckSheet({
             </button>
           </div>
         </div>
-        <div className="seg-row">
-          <span className="seg-label">ツモ払い</span>
-          {isStandard && !isDealer ? (
-            <div className="seg wrap">
-              <button
-                className={state.dealerPays ? 'on' : ''}
-                onClick={() => patch({ dealerPays: !state.dealerPays })}
-              >
-                親が払う
-              </button>
-              {[0, 1, 2].map((n) => (
-                <button
-                  key={n}
-                  className={state.koPayers === n ? 'on' : ''}
-                  onClick={() => patch({ koPayers: n })}
-                >
-                  子{n}人
-                </button>
-              ))}
+        {isStandard && (
+          <>
+            <div className="seg-row">
+              <span className="seg-label">ツモ払い</span>
+              {!isDealer ? (
+                <div className="seg wrap">
+                  <button
+                    className={state.dealerPays ? 'on' : ''}
+                    onClick={() => patch({ dealerPays: !state.dealerPays })}
+                  >
+                    親が払う
+                  </button>
+                  {[0, 1, 2].map((n) => (
+                    <button
+                      key={n}
+                      className={state.koPayers === n ? 'on' : ''}
+                      onClick={() => patch({ koPayers: n })}
+                    >
+                      子{n}人
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <div className="seg">
+                  {[1, 2, 3].map((n) => (
+                    <button
+                      key={n}
+                      className={state.koPayers === n ? 'on' : ''}
+                      onClick={() => patch({ koPayers: n })}
+                    >
+                      {n}人
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
-          ) : (
-            <div className="seg">
-              {[1, 2, 3].map((n) => (
-                <button
-                  key={n}
-                  className={state.koPayers === n ? 'on' : ''}
-                  onClick={() => patch({ koPayers: n })}
-                >
-                  {n}人
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-        <p className="sheet-note">
-          嶺上開花はツモ側、搶槓はロン側の結果にのみ反映されます。ツモ払いの人数は和了済・飛びの家を除いた支払い相手の数です
-        </p>
+            <p className="sheet-note">
+              嶺上開花はツモ側、搶槓はロン側の結果にのみ反映されます。ツモ払いの人数は和了済を除いた支払い相手の数です
+            </p>
+          </>
+        )}
       </div>
     </div>
   )

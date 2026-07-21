@@ -3,17 +3,19 @@ import type { TileId } from '../core/tiles'
 import { TileImage } from './TileImage'
 
 function ScoreCell({ label, total, rank }: { label: string; total?: number; rank?: string }) {
-  if (total === undefined) {
-    return (
-      <span className="wait-score noyaku">
-        {label} <em>役なし</em>
-      </span>
-    )
-  }
   return (
-    <span className="wait-score">
-      {label} <strong>{total.toLocaleString()}</strong>
-      {rank && <em className="rank">{rank}</em>}
+    <span className="wait-score-col">
+      <span className="score-label">{label}</span>
+      <span className="score-value">
+        {total === undefined ? (
+          <em className="noyaku">役なし</em>
+        ) : (
+          <>
+            <strong>{total.toLocaleString()}</strong>
+            {rank && <em className="rank">{rank}</em>}
+          </>
+        )}
+      </span>
     </span>
   )
 }
@@ -50,7 +52,6 @@ export function WaitsPanel({
         <ul className="wait-list">
           {outcome.waits.map((w) => (
             <li key={w.tile}>
-              {/* 点数は右寄せの2カラムで縦のラインを揃える */}
               <button className="wait-row wait-columns" onClick={() => onPickWait(w.tile)}>
                 <span className="wait-tile">
                   <TileImage tile={{ t: w.tile }} />
@@ -74,9 +75,11 @@ export function WaitsPanel({
 /** ツモ番 (13枚): 聴牌を保つ打牌候補 */
 export function DiscardsPanel({
   outcome,
+  showBanner = true,
   onDiscard,
 }: {
   outcome: DiscardsOutcome
+  showBanner?: boolean
   onDiscard: (tile: TileId) => void
 }) {
   if (!outcome.ok) {
@@ -88,7 +91,7 @@ export function DiscardsPanel({
   }
   return (
     <section className="result">
-      {outcome.tsumoWinPossible && (
+      {showBanner && outcome.tsumoWinPossible && (
         <div className="analysis-banner">この手は万能牌の解釈により既にツモ和了できます</div>
       )}
       <div className="analysis-card">
@@ -112,7 +115,7 @@ export function DiscardsPanel({
                       <TileImage key={w} tile={{ t: w }} />
                     ))}
                   </span>
-                  <span className="wait-left">計{d.totalRemaining}枚</span>
+                  <span className="wait-left">{d.waits.length}種{d.totalRemaining}枚</span>
                 </button>
               </li>
             ))}
