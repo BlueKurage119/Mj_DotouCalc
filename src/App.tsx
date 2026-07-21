@@ -648,7 +648,7 @@ export default function App() {
 
         <button className="card luck-card" onClick={() => setPopup({ kind: 'luck' })}>
           <div className="card-label">立直・偶然役関係</div>
-          <div className="luck-summary">{luckSummary(luck)}</div>
+          <div className="luck-summary">{luckSummary(luck, isStandard, isDealer)}</div>
         </button>
 
         <div className="result-area">
