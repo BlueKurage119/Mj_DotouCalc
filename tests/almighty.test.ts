@@ -97,7 +97,7 @@ describe('万能牌の高目選択', () => {
     expect(inc.best!.dora.ura).toBe(2)
   })
 
-  it('同一牌の5枚目として使用できる', () => {
+  it('同一牌の5枚目として使用できない', () => {
     const out = calcAlmighty(
       {
         ...baseInput,
@@ -107,8 +107,24 @@ describe('万能牌の高目選択', () => {
       },
       dotou,
     )
-    expect(out.ok).toBe(true)
-    expect(out.candidates.some((c) => c.tile === 1)).toBe(true) // 1m 5枚目
+    expect(out.ok).toBe(false) // 1m 5枚目は禁止され、他の置換でも和了形にならないため false
+  })
+
+  it('5枚使いの待ち牌および置換制限の検証 (Issue 9)', () => {
+    const hand = {
+      ...baseInput,
+      melds: [
+        { type: 'pon' as const, tiles: t('6p 6p 6p') },
+        { type: 'minkan' as const, tiles: t('8p 8p 8p 8p') },
+      ],
+      concealed: t('2p 2p 2p 4p 4p 4p'),
+      winTile: t('8p')[0],
+    }
+
+    expect(calcAlmighty(hand, dotou).ok).toBe(false)
+    expect(calcAlmighty({ ...hand, winTile: t('6p')[0] }, dotou).ok).toBe(true)
+    expect(calcAlmighty({ ...hand, winTile: t('2p')[0] }, dotou).ok).toBe(true)
+    expect(calcAlmighty({ ...hand, winTile: t('4p')[0] }, dotou).ok).toBe(true)
   })
 
   it('場風なし(怒涛): 東場でも場風東はつかない', () => {

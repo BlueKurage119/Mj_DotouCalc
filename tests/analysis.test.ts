@@ -113,6 +113,26 @@ describe('聴牌分析 (analyzeWaits)', () => {
       expect(viaHairi).toEqual(brute)
     }
   })
+
+  it('5枚使いの待ち牌除外の検証 (Issue 9)', () => {
+    const out = analyzeWaits(
+      {
+        ...baseInput,
+        melds: [
+          { type: 'pon', tiles: t('6p 6p 6p') },
+          { type: 'minkan', tiles: t('8p 8p 8p 8p') },
+        ],
+        concealed: t('2p 2p 2p 4p 4p 4p'),
+      },
+      dotou,
+    )
+    // Issue #9 の 222444p + ポン666p + 明槓8888p ケースで 8p が不可、2p/4p/6p は別置換で和了可能です。
+    const waits = out.waits.map((w) => w.tile)
+    expect(out.tenpai).toBe(true)
+    expect(waits).not.toContain(17) // 8p
+    expect(waits).toEqual(ALL_TILES.filter((tile) => tile !== 17))
+    expect(waits).toEqual(expect.arrayContaining([11, 13, 15])) // 2p, 4p, 6p
+  })
 })
 
 describe('何切る分析 (analyzeDiscards)', () => {
