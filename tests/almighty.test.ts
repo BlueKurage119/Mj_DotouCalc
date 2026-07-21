@@ -111,33 +111,20 @@ describe('万能牌の高目選択', () => {
   })
 
   it('5枚使いの待ち牌および置換制限の検証 (Issue 9)', () => {
-    // 222444p ポン666p 明槓8888p
-    // 手牌には、8pが4枚、6pが3枚、4pが3枚、2pが3枚ある
     const hand = {
       ...baseInput,
       melds: [
-        { type: 'pon', tiles: t('6p 6p 6p') },
-        { type: 'minkan', tiles: t('8p 8p 8p 8p') },
+        { type: 'pon' as const, tiles: t('6p 6p 6p') },
+        { type: 'minkan' as const, tiles: t('8p 8p 8p 8p') },
       ],
       concealed: t('2p 2p 2p 4p 4p 4p'),
       winTile: t('8p')[0],
     }
 
-    // 8pは手の内で4枚使われているため和了・置換不可
-    const out8p = calcAlmighty(hand, dotou)
-    expect(out8p.ok).toBe(false)
-
-    // 6pは手の内で3枚使われているが、万能牌を5pや7pに置換することで和了可能
-    const out6p = calcAlmighty({ ...hand, winTile: t('6p')[0] }, dotou)
-    expect(out6p.ok).toBe(true)
-
-    // 2pは手の内で3枚使われているが、万能牌を3pに置換することで和了可能
-    const out2p = calcAlmighty({ ...hand, winTile: t('2p')[0] }, dotou)
-    expect(out2p.ok).toBe(true)
-
-    // 4pも同様に、万能牌を3pに置換することで和了可能
-    const out4p = calcAlmighty({ ...hand, winTile: t('4p')[0] }, dotou)
-    expect(out4p.ok).toBe(true)
+    expect(calcAlmighty(hand, dotou).ok).toBe(false)
+    expect(calcAlmighty({ ...hand, winTile: t('6p')[0] }, dotou).ok).toBe(true)
+    expect(calcAlmighty({ ...hand, winTile: t('2p')[0] }, dotou).ok).toBe(true)
+    expect(calcAlmighty({ ...hand, winTile: t('4p')[0] }, dotou).ok).toBe(true)
   })
 
   it('場風なし(怒涛): 東場でも場風東はつかない', () => {

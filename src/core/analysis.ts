@@ -103,6 +103,10 @@ function remainingOf(tile: TileId, input: AnalysisInput): number {
   return Math.max(0, 4 - visible)
 }
 
+function hasAgariShape(ron: CalcOutcome, tsumo: CalcOutcome): boolean {
+  return ron.ok || tsumo.ok || ron.hadNoYaku || tsumo.hadNoYaku
+}
+
 function backendMelds(input: AnalysisInput) {
   return input.melds.map((m) => ({ open: m.type !== 'ankan', tiles: m.tiles.map((x) => x.t) }))
 }
@@ -174,11 +178,7 @@ export function analyzeWaits(input: AnalysisInput, opts: RuleOptions): WaitsOutc
     const winTile: TileInstance = { t: w }
     const ron = cachedCalcAlmighty({ ...input, winTile, isTsumo: false }, opts)
     const tsumo = cachedCalcAlmighty({ ...input, winTile, isTsumo: true }, opts)
-
-    // 和了形にならない場合は除外
-    const hasAgariShape = ron.ok || tsumo.ok || ron.hadNoYaku || tsumo.hadNoYaku
-    if (!hasAgariShape) continue
-
+    if (!hasAgariShape(ron, tsumo)) continue
     waits.push({
       tile: w,
       remaining: remainingOf(w, input),
@@ -187,7 +187,7 @@ export function analyzeWaits(input: AnalysisInput, opts: RuleOptions): WaitsOutc
       noYaku: !ron.ok && !tsumo.ok,
     })
   }
-  return { ok: true, tenpai: true, waits }
+  return { ok: true, tenpai: waits.length > 0, waits }
 }
 
 /** 実牌から1枚除去する (赤5でない方を優先。打牌操作 App.tsx:discardTile と同じ考え方) */
@@ -232,9 +232,6 @@ export function analyzeDiscards(input: AnalysisInput, opts: RuleOptions): Discar
   const discards: DiscardInfo[] = [...discardWaits.entries()]
     .map(([tile, ws]) => {
       const waits = [...ws].sort((a, b) => a - b)
-      // 打牌後の残り枚数: 打牌自身が待ちに含まれる場合もあるが近似として現在の見え牌基準
-      const totalRemaining = waits.reduce((acc, w) => acc + remainingOf(w, input), 0)
-
       const after = removeOneTile(input.concealed, tile)
       const totals: number[] = []
       let hasNoYakuWait = false
@@ -243,11 +240,7 @@ export function analyzeDiscards(input: AnalysisInput, opts: RuleOptions): Discar
         const winTile: TileInstance = { t: w }
         const ron = cachedCalcAlmighty({ ...input, concealed: after, winTile, isTsumo: false }, opts)
         const tsumo = cachedCalcAlmighty({ ...input, concealed: after, winTile, isTsumo: true }, opts)
-
-        // 和了形にならない場合は除外
-        const hasAgariShape = ron.ok || tsumo.ok || ron.hadNoYaku || tsumo.hadNoYaku
-        if (!hasAgariShape) continue
-
+        if (!hasAgariShape(ron, tsumo)) continue
         validWaits.push(w)
         if (ron.ok) totals.push(ron.best!.payment.total)
         if (tsumo.ok) totals.push(tsumo.best!.payment.total)
@@ -257,8 +250,11 @@ export function analyzeDiscards(input: AnalysisInput, opts: RuleOptions): Discar
         ? { min: Math.min(...totals), max: Math.max(...totals) }
         : null
 
+      const totalRemaining = validWaits.reduce((acc, w) => acc + remainingOf(w, input), 0)
+
       return { tile, waits: validWaits, totalRemaining, scoreRange, hasNoYakuWait }
     })
+    .filter((d) => d.waits.length > 0)
     .sort((a, b) => b.totalRemaining - a.totalRemaining || a.tile - b.tile)
 
   return { ok: true, tsumoWinPossible, discards }
