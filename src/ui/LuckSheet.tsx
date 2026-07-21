@@ -75,31 +75,6 @@ export function LuckSheet({
           </button>
         </div>
         <div className="seg-row">
-          <span className="seg-label">配牌和了</span>
-          <div className="seg">
-            <button
-              className={firstTakeOn ? 'on' : ''}
-              disabled={hasAnyMeld}
-              onClick={() =>
-                patch(
-                  firstTakeOn
-                    ? { firstTake: false }
-                    : {
-                        firstTake: true,
-                        riichiState: 'none',
-                        ippatsu: false,
-                        rinshan: false,
-                        chankan: false,
-                        lastTile: false,
-                      },
-                )
-              }
-            >
-              {isEast ? '天和' : '地和'}
-            </button>
-          </div>
-        </div>
-        <div className="seg-row">
           <span className="seg-label">立直</span>
           <div className="seg">
             <button
@@ -155,6 +130,26 @@ export function LuckSheet({
               onClick={() => patch({ lastTile: !state.lastTile })}
             >
               海底/河底
+            </button>
+            <button
+              className={firstTakeOn ? 'on' : ''}
+              disabled={hasAnyMeld}
+              onClick={() =>
+                patch(
+                  firstTakeOn
+                    ? { firstTake: false }
+                    : {
+                        firstTake: true,
+                        riichiState: 'none',
+                        ippatsu: false,
+                        rinshan: false,
+                        chankan: false,
+                        lastTile: false,
+                      },
+                )
+              }
+            >
+              {isEast ? '天和' : '地和'}
             </button>
           </div>
         </div>
