@@ -91,8 +91,23 @@ describe('通常方式', () => {
   it('子ツモ 満貫 2000・4000 (子2人+親)', () => {
     const p = calcPayment({ ...base, han: 5, fu: 30, isTsumo: true, mode: 'standard', koPayers: 2 })
     expect(p.total).toBe(8000)
+    expect(p.detail).not.toContain('オール')
   })
-  it('ツモ損: 親が和了済なら親の支払いなし', () => {
+  it('子ツモ 満貫 支払者が親のみ: 4000', () => {
+    const p = calcPayment({
+      ...base,
+      han: 5,
+      fu: 30,
+      isTsumo: true,
+      mode: 'standard',
+      koPayers: 0,
+      dealerPays: true,
+    })
+    expect(p.total).toBe(4000)
+    expect(p.detail).toContain('親4000')
+    expect(p.detail).not.toContain('オール')
+  })
+  it('ツモ損: 親が和了済なら親の支払いなし (子複数はオール表記)', () => {
     const p = calcPayment({
       ...base,
       han: 5,
@@ -103,6 +118,47 @@ describe('通常方式', () => {
       dealerPays: false,
     })
     expect(p.total).toBe(4000)
+    expect(p.detail).toContain('2000オール')
+  })
+  it('ツモ損: 子1人のみなら「オール」を付けない', () => {
+    const p = calcPayment({
+      ...base,
+      han: 5,
+      fu: 30,
+      isTsumo: true,
+      mode: 'standard',
+      koPayers: 1,
+      dealerPays: false,
+    })
+    expect(p.total).toBe(2000)
+    expect(p.detail).not.toContain('オール')
+  })
+  it('親ツモ 満貫 子2人でもオール表記 (境界値)', () => {
+    const p = calcPayment({
+      ...base,
+      han: 5,
+      fu: 30,
+      isTsumo: true,
+      mode: 'standard',
+      isDealer: true,
+      koPayers: 2,
+    })
+    expect(p.total).toBe(8000)
+    expect(p.detail).toContain('4000オール')
+  })
+  it('親ツモ 満貫 子1人のみなら「オール」を付けない', () => {
+    const p = calcPayment({
+      ...base,
+      han: 5,
+      fu: 30,
+      isTsumo: true,
+      mode: 'standard',
+      isDealer: true,
+      koPayers: 1,
+    })
+    expect(p.total).toBe(4000)
+    expect(p.detail).toContain('4000')
+    expect(p.detail).not.toContain('オール')
   })
   it('子ロン 40符1翻 1300', () => {
     expect(calcPayment({ ...base, han: 1, fu: 40, mode: 'standard' }).total).toBe(1300)

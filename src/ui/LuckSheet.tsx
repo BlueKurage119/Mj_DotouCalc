@@ -14,7 +14,14 @@ export interface LuckState {
   dealerPays: boolean
 }
 
-export function luckSummary(s: LuckState): string {
+/** ツモ払い設定の表示 (通常方式のみ)。例: "3人" / " 親+子2人" / " 親のみ" / " 子2人" */
+function tsumoPayLabel(s: LuckState, isDealer: boolean): string {
+  if (isDealer) return `${s.koPayers}人`
+  if (s.dealerPays) return s.koPayers >= 1 ? ` 親+子${s.koPayers}人` : ' 親のみ'
+  return ` 子${s.koPayers}人`
+}
+
+export function luckSummary(s: LuckState, isStandard = false, isDealer = false): string {
   const parts: string[] = []
   if (s.riichiState === 'riichi') parts.push('立直')
   if (s.riichiState === 'double') parts.push('W立直')
@@ -22,6 +29,7 @@ export function luckSummary(s: LuckState): string {
   if (s.rinshan) parts.push('嶺上')
   if (s.chankan) parts.push('搶槓')
   if (s.lastTile) parts.push('海底/河底')
+  if (isStandard) parts.push(`ツモ払い${tsumoPayLabel(s, isDealer)}`)
   return parts.length > 0 ? parts.join('・') : 'なし'
 }
 
@@ -113,7 +121,14 @@ export function LuckSheet({
               <div className="seg wrap">
                 <button
                   className={state.dealerPays ? 'on' : ''}
-                  onClick={() => patch({ dealerPays: !state.dealerPays })}
+                  onClick={() => {
+                    const nextDealerPays = !state.dealerPays
+                    patch(
+                      !nextDealerPays && state.koPayers === 0
+                        ? { dealerPays: nextDealerPays, koPayers: 1 }
+                        : { dealerPays: nextDealerPays },
+                    )
+                  }}
                 >
                   親が払う
                 </button>
@@ -121,6 +136,7 @@ export function LuckSheet({
                   <button
                     key={n}
                     className={state.koPayers === n ? 'on' : ''}
+                    disabled={n === 0 && !state.dealerPays}
                     onClick={() => patch({ koPayers: n })}
                   >
                     子{n}人

@@ -5,6 +5,7 @@ import { PRESETS, type PresetId, type RuleOptions } from './core/options'
 import {
   EAST,
   NORTH,
+  compareTiles,
   suitOf,
   tileName,
   type TileId,
@@ -252,6 +253,15 @@ export default function App() {
   function closeTenkey() {
     // 空の副露スロットは閉じるときに破棄
     setMelds((ms) => ms.filter((m) => m.tiles.length > 0))
+    // 手牌は和了牌(満杯時の末尾)以外を理牌
+    if (popup?.kind === 'tenkey' && popup.target === 'hand') {
+      setHand((h) => {
+        const winSeparate = h.length === cap && h.length > 0
+        const body = winSeparate ? h.slice(0, -1) : h
+        const sorted = [...body].sort(compareTiles)
+        return winSeparate ? [...sorted, h[h.length - 1]] : sorted
+      })
+    }
     setTenkeyError(null)
     setPopup(null)
   }
@@ -388,7 +398,7 @@ export default function App() {
     const body = winSeparate ? hand.slice(0, -1) : hand
     const sorted = body
       .map((x, i) => ({ x, i }))
-      .sort((a, b) => a.x.t - b.x.t || Number(a.x.red ?? false) - Number(b.x.red ?? false))
+      .sort((a, b) => compareTiles(a.x, b.x))
     return { sorted, win: winSeparate ? { x: hand[hand.length - 1], i: hand.length - 1 } : null }
   }, [hand, cap])
 
@@ -638,7 +648,7 @@ export default function App() {
 
         <button className="card luck-card" onClick={() => setPopup({ kind: 'luck' })}>
           <div className="card-label">立直・偶然役関係</div>
-          <div className="luck-summary">{luckSummary(luck)}</div>
+          <div className="luck-summary">{luckSummary(luck, isStandard, isDealer)}</div>
         </button>
 
         <div className="result-area">

@@ -79,3 +79,8 @@ export function countByTile(tiles: TileId[]): Map<TileId, number> {
   for (const t of tiles) m.set(t, (m.get(t) ?? 0) + 1)
   return m
 }
+
+/** 理牌用の比較: 牌ID昇順、同牌は通常→赤の順 */
+export function compareTiles(a: TileInstance, b: TileInstance): number {
+  return a.t - b.t || Number(a.red ?? false) - Number(b.red ?? false)
+}
