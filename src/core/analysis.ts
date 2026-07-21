@@ -1,5 +1,5 @@
 // 聴牌分析 (待ち牌と点数) と 何切る分析 (聴牌を保つ打牌候補)
-import { calcAlmighty, type Candidate, type HandInput } from './almighty'
+import { calcAlmighty, type Candidate, type CalcOutcome, type HandInput } from './almighty'
 import { calcHairi } from './backend'
 import type { RuleOptions } from './options'
 import {
@@ -33,12 +33,27 @@ export interface WaitsOutcome {
   waits: WaitInfo[]
 }
 
+export interface DiscardScoreRange {
+  min: number
+  max: number
+}
+
 export interface DiscardInfo {
   tile: TileId
   /** この牌を切った後の待ち牌 */
   waits: TileId[]
   /** 待ち牌の残り枚数合計 */
   totalRemaining: number
+  /**
+   * 打牌後の待ちで和了した場合の点数範囲。
+   * 現在の状況設定 (立直・一発・裏ドラ等) のまま各待ちをロン・ツモ両方で計算し、
+   * 役がつく組み合わせの受け取り合計 (payment.total) の最小〜最大を表す。
+   * ロン・ツモとも役なしになる待ち (形式聴牌) は範囲から除外し hasNoYakuWait で示す。
+   * 全ての待ちが役なしの場合は null。
+   */
+  scoreRange: DiscardScoreRange | null
+  /** ロン・ツモともに役なしになる待ちが1つ以上あるか */
+  hasNoYakuWait: boolean
 }
 
 export interface DiscardsOutcome {
@@ -92,6 +107,51 @@ function backendMelds(input: AnalysisInput) {
   return input.melds.map((m) => ({ open: m.type !== 'ankan', tiles: m.tiles.map((x) => x.t) }))
 }
 
+function tilesKey(tiles: TileInstance[]): string {
+  return tiles
+    .map((x) => (x.red ? `${x.t}r` : `${x.t}`))
+    .sort()
+    .join(',')
+}
+
+/** calcAlmighty の結果は入力から一意に決まるため、同一入力をキーにメモ化する */
+const almightyCache = new Map<string, CalcOutcome>()
+const ALMIGHTY_CACHE_MAX = 2000
+
+function cachedCalcAlmighty(input: HandInput, opts: RuleOptions): CalcOutcome {
+  const key = JSON.stringify([
+    tilesKey(input.concealed),
+    input.melds
+      .map((m) => `${m.type}:${tilesKey(m.tiles)}`)
+      .sort()
+      .join('|'),
+    input.winTile.t,
+    !!input.winTile.red,
+    input.isTsumo,
+    input.seatWind,
+    input.roundWind,
+    input.riichi,
+    input.doubleRiichi,
+    input.ippatsu,
+    input.afterKan,
+    input.lastTile,
+    tilesKey(input.doraIndicators),
+    tilesKey(input.uraIndicators),
+    input.koPayers,
+    input.dealerPays,
+    opts,
+  ])
+  const hit = almightyCache.get(key)
+  if (hit) return hit
+  const r = calcAlmighty(input, opts)
+  if (almightyCache.size >= ALMIGHTY_CACHE_MAX) {
+    const oldest = almightyCache.keys().next().value
+    if (oldest !== undefined) almightyCache.delete(oldest)
+  }
+  almightyCache.set(key, r)
+  return r
+}
+
 /**
  * 聴牌分析: 手牌 (12-3×副露) + 万能牌 の待ち牌一覧と各待ちのロン・ツモ点数。
  * 待ちの発見は hairi (万能牌34置換のunion)、点数は calcAlmighty で計算する。
@@ -112,8 +172,8 @@ export function analyzeWaits(input: AnalysisInput, opts: RuleOptions): WaitsOutc
   const waits: WaitInfo[] = []
   for (const w of [...waitSet].sort((a, b) => a - b)) {
     const winTile: TileInstance = { t: w }
-    const ron = calcAlmighty({ ...input, winTile, isTsumo: false }, opts)
-    const tsumo = calcAlmighty({ ...input, winTile, isTsumo: true }, opts)
+    const ron = cachedCalcAlmighty({ ...input, winTile, isTsumo: false }, opts)
+    const tsumo = cachedCalcAlmighty({ ...input, winTile, isTsumo: true }, opts)
     waits.push({
       tile: w,
       remaining: remainingOf(w, input),
@@ -125,11 +185,20 @@ export function analyzeWaits(input: AnalysisInput, opts: RuleOptions): WaitsOutc
   return { ok: true, tenpai: true, waits }
 }
 
+/** 実牌から1枚除去する (赤5でない方を優先。打牌操作 App.tsx:discardTile と同じ考え方) */
+function removeOneTile(concealed: TileInstance[], tile: TileId): TileInstance[] {
+  let idx = concealed.findIndex((x) => x.t === tile && !x.red)
+  if (idx < 0) idx = concealed.findIndex((x) => x.t === tile)
+  return concealed.filter((_, i) => i !== idx)
+}
+
 /**
  * 何切る分析: 手牌 (13-3×副露) + 万能牌 のとき、聴牌を保つ打牌候補と打牌後の待ち。
  * 万能牌は打牌できないため、候補は実牌に限る。
+ * 各打牌候補について、待ちごとにロン・ツモ両方を現在の状況設定 (立直・一発・裏ドラ等) で
+ * 計算し、点数範囲 (scoreRange) を付与する。
  */
-export function analyzeDiscards(input: AnalysisInput): DiscardsOutcome {
+export function analyzeDiscards(input: AnalysisInput, opts: RuleOptions): DiscardsOutcome {
   const err = validateTiles(input, 13 - 3 * input.melds.length)
   if (err) return { ok: false, error: err, tsumoWinPossible: false, discards: [] }
 
@@ -160,7 +229,23 @@ export function analyzeDiscards(input: AnalysisInput): DiscardsOutcome {
       const waits = [...ws].sort((a, b) => a - b)
       // 打牌後の残り枚数: 打牌自身が待ちに含まれる場合もあるが近似として現在の見え牌基準
       const totalRemaining = waits.reduce((acc, w) => acc + remainingOf(w, input), 0)
-      return { tile, waits, totalRemaining }
+
+      const after = removeOneTile(input.concealed, tile)
+      const totals: number[] = []
+      let hasNoYakuWait = false
+      for (const w of waits) {
+        const winTile: TileInstance = { t: w }
+        const ron = cachedCalcAlmighty({ ...input, concealed: after, winTile, isTsumo: false }, opts)
+        const tsumo = cachedCalcAlmighty({ ...input, concealed: after, winTile, isTsumo: true }, opts)
+        if (ron.ok) totals.push(ron.best!.payment.total)
+        if (tsumo.ok) totals.push(tsumo.best!.payment.total)
+        if (!ron.ok && !tsumo.ok) hasNoYakuWait = true
+      }
+      const scoreRange: DiscardScoreRange | null = totals.length
+        ? { min: Math.min(...totals), max: Math.max(...totals) }
+        : null
+
+      return { tile, waits, totalRemaining, scoreRange, hasNoYakuWait }
     })
     .sort((a, b) => b.totalRemaining - a.totalRemaining || a.tile - b.tile)
 

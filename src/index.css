@@ -554,7 +554,8 @@ button {
 
 .key.enter {
   grid-column: 4;
-  grid-row: 4;
+  grid-row: 4 / 6;
+  height: auto;
   background: var(--primary);
   color: var(--on-primary);
 }
@@ -911,6 +912,23 @@ button {
   font-size: 0.75rem;
   color: var(--sub);
   white-space: nowrap;
+}
+
+.discard-info {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+.discard-range {
+  font-size: 0.72rem;
+  color: var(--sub);
+  white-space: nowrap;
+}
+
+.discard-range .noyaku {
+  font-style: normal;
 }
 
 /* 待ち一覧: 牌・枚数 / ロン / ツモ を同じ幅の3カラムにし、

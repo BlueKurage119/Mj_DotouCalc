@@ -117,10 +117,13 @@ describe('聴牌分析 (analyzeWaits)', () => {
 
 describe('何切る分析 (analyzeDiscards)', () => {
   it('13枚: 不要牌を切ると聴牌', () => {
-    const out = analyzeDiscards({
-      ...baseInput,
-      concealed: t('2m 3m 4m 5m 6m 7m 2p 3p 4p 5s 中 中 9p'),
-    })
+    const out = analyzeDiscards(
+      {
+        ...baseInput,
+        concealed: t('2m 3m 4m 5m 6m 7m 2p 3p 4p 5s 中 中 9p'),
+      },
+      dotou,
+    )
     expect(out.ok).toBe(true)
     const d9p = out.discards.find((d) => d.tile === 18) // 9p
     expect(d9p).toBeDefined()
@@ -129,26 +132,104 @@ describe('何切る分析 (analyzeDiscards)', () => {
   })
 
   it('万能牌の解釈で既に和了形ならツモ和了可能と判定', () => {
-    const out = analyzeDiscards({
-      ...baseInput,
-      concealed: t('2m 3m 4m 5m 6m 7m 2p 3p 4p 5s 5s 中 中'),
-    })
+    const out = analyzeDiscards(
+      {
+        ...baseInput,
+        concealed: t('2m 3m 4m 5m 6m 7m 2p 3p 4p 5s 5s 中 中'),
+      },
+      dotou,
+    )
     expect(out.ok).toBe(true)
     expect(out.tsumoWinPossible).toBe(true)
   })
 
   it('打牌候補は実牌のみ (万能牌は切れない)', () => {
-    const out = analyzeDiscards({
-      ...baseInput,
-      concealed: t('2m 3m 4m 5m 6m 7m 2p 3p 4p 5s 中 中 9p'),
-    })
+    const out = analyzeDiscards(
+      {
+        ...baseInput,
+        concealed: t('2m 3m 4m 5m 6m 7m 2p 3p 4p 5s 中 中 9p'),
+      },
+      dotou,
+    )
     const handIds = new Set(t('2m 3m 4m 5m 6m 7m 2p 3p 4p 5s 中 中 9p').map((x) => x.t))
     expect(out.discards.every((d) => handIds.has(d.tile))).toBe(true)
   })
 
   it('枚数不正はエラー', () => {
-    const out = analyzeDiscards({ ...baseInput, concealed: t('1m 2m 3m') })
+    const out = analyzeDiscards({ ...baseInput, concealed: t('1m 2m 3m') }, dotou)
     expect(out.ok).toBe(false)
     expect(out.error).toContain('13枚')
+  })
+
+  it('点数レンジは待ちごとのロン/ツモ計算の最小〜最大と一致する', () => {
+    const out = analyzeDiscards(
+      {
+        ...baseInput,
+        concealed: t('2m 3m 4m 5m 6m 7m 2p 3p 4p 5s 中 中 9p'),
+      },
+      dotou,
+    )
+    const d9p = out.discards.find((d) => d.tile === 18)! // 9p切り
+    const waitsOut = analyzeWaits(
+      { ...baseInput, concealed: t('2m 3m 4m 5m 6m 7m 2p 3p 4p 5s 中 中') },
+      dotou,
+    )
+    const totals: number[] = []
+    let hasNoYakuWait = false
+    for (const w of waitsOut.waits) {
+      if (w.ron) totals.push(w.ron.payment.total)
+      if (w.tsumo) totals.push(w.tsumo.payment.total)
+      if (w.noYaku) hasNoYakuWait = true
+    }
+    expect(d9p.hasNoYakuWait).toBe(hasNoYakuWait)
+    expect(d9p.scoreRange).toEqual({ min: Math.min(...totals), max: Math.max(...totals) })
+  })
+
+  it('副露あり手: 全ての待ちが役なしならレンジはnull', () => {
+    // 999p(開槓)は役牌でも断幺九対象でもないため、234m+678m+5s+9sが確定していても
+    // 待みは常に役なし (門前ツモ不可・幺九牌で断幺九不可・他の役の成立条件も満たさない)
+    const out = analyzeDiscards(
+      {
+        ...baseInput,
+        melds: [{ type: 'pon', tiles: t('9p 9p 9p') }],
+        concealed: t('2m 3m 4m 6m 7m 8m 2s 3s 4s 9s'),
+      },
+      dotou,
+    )
+    expect(out.ok).toBe(true)
+    const d9s = out.discards.find((d) => d.tile === 27)! // 9s切り
+    expect(d9s).toBeDefined()
+    expect(d9s.scoreRange).toBeNull()
+    expect(d9s.hasNoYakuWait).toBe(true)
+  })
+
+  it('副露あり手: 一部の待ちのみ役ありなら hasNoYakuWait と scoreRange が両立する', () => {
+    // 999p(開槓) + 234m + 678m + 5s + 中中 + 9s(切り)。
+    // 中待ちは役牌(中)成立、5s待ちも中中中+5s5sの高目解釈で役牌成立するが、
+    // 3s/4s/6s/7s待ちは順子+中中(対子のまま)しか成立せず役なしになる
+    const out = analyzeDiscards(
+      {
+        ...baseInput,
+        melds: [{ type: 'pon', tiles: t('9p 9p 9p') }],
+        concealed: t('2m 3m 4m 6m 7m 8m 5s 中 中 9s'),
+      },
+      dotou,
+    )
+    const d9s = out.discards.find((d) => d.tile === 27)! // 9s切り
+    expect(d9s).toBeDefined()
+    expect(d9s.hasNoYakuWait).toBe(true)
+    expect(d9s.scoreRange).not.toBeNull()
+  })
+
+  it('立直・裏ドラの条件設定がレンジ計算に反映される', () => {
+    const hand = t('2m 3m 4m 5m 6m 7m 2p 3p 4p 5s 中 中 9p')
+    const without = analyzeDiscards({ ...baseInput, concealed: hand }, dotou)
+    const withRiichi = analyzeDiscards(
+      { ...baseInput, concealed: hand, riichi: true, uraIndicators: t('5m') },
+      dotou,
+    )
+    const d1 = without.discards.find((d) => d.tile === 18)!.scoreRange!
+    const d2 = withRiichi.discards.find((d) => d.tile === 18)!.scoreRange!
+    expect(d2.max).toBeGreaterThan(d1.max)
   })
 })

@@ -372,8 +372,8 @@ export default function App() {
 
   const discardsOutcome = useMemo(() => {
     if (!scoreTsumo) return null
-    return analyzeDiscards({ ...baseInput, concealed: hand })
-  }, [scoreTsumo, baseInput, hand])
+    return analyzeDiscards({ ...baseInput, concealed: hand }, options)
+  }, [scoreTsumo, baseInput, hand, options])
 
   // 12枚相当: 聴牌分析
   const waitsOutcome = useMemo(() => {

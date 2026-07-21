@@ -1,6 +1,15 @@
-import type { DiscardsOutcome, WaitsOutcome } from '../core/analysis'
+import type { DiscardInfo, DiscardsOutcome, WaitsOutcome } from '../core/analysis'
 import type { TileId } from '../core/tiles'
 import { TileImage } from './TileImage'
+
+/** 打牌候補の点数レンジ表記 (例: 「（5,200〜12,000点）」「役なし」「（役なし/1,000〜3,900点）」) */
+function formatDiscardRange(d: DiscardInfo) {
+  if (!d.scoreRange) return <em className="noyaku">役なし</em>
+  const { min, max } = d.scoreRange
+  const range =
+    min === max ? `${min.toLocaleString()}点` : `${min.toLocaleString()}〜${max.toLocaleString()}点`
+  return <>（{d.hasNoYakuWait ? `役なし/${range}` : range}）</>
+}
 
 function ScoreCell({ label, total }: { label: string; total?: number }) {
   return (
@@ -112,8 +121,11 @@ export function DiscardsPanel({
                       <TileImage key={w} tile={{ t: w }} />
                     ))}
                   </span>
-                  <span className="wait-left">
-                    {d.waits.length}種{d.totalRemaining}枚
+                  <span className="discard-info">
+                    <span className="wait-left">
+                      {d.waits.length}種{d.totalRemaining}枚
+                    </span>
+                    <span className="discard-range">{formatDiscardRange(d)}</span>
                   </span>
                 </button>
               </li>
