@@ -262,9 +262,15 @@ describe('何切る分析 (analyzeDiscards)', () => {
     expect(d1s).toBeDefined()
     expect(d1s.waits).toContain(20) // 2s
     expect(d1s.furiten).toBe(true)
+    // 切った1s自身も待ち牌一覧に表示され、枚数集計にも含まれる
+    // (1s: 手牌2枚使用で残2枚 + 2s: 手牌0枚で残4枚 + 万能牌経由の他の待ち)
+    expect(d1s.waits).toContain(19)
+    const remaining1s = 2 // 4 - 手牌の1s2枚 (切った1枚は河、残り1枚は手中)
+    expect(d1s.totalRemaining).toBeGreaterThanOrEqual(remaining1s)
     const d9s = out.discards.find((d) => d.tile === 27)! // 9s切り
     expect(d9s).toBeDefined()
     expect(d9s.furiten).toBe(true)
+    expect(d9s.waits).toContain(27)
   })
 
   it('振聴ではない通常の打牌候補は furiten=false', () => {

@@ -238,8 +238,24 @@ export function analyzeDiscards(input: AnalysisInput, opts: RuleOptions): Discar
 
   const discards: DiscardInfo[] = [...discardWaits.entries()]
     .map(([tile, ws]) => {
-      const waits = [...ws].sort((a, b) => a - b)
       const after = removeOneTile(input.concealed, tile)
+
+      // 振聴判定: calcHairi の待ち計算は「捨てた牌自身」を構造的に待ちから除外するため
+      // (riichi-rust の hairi 実装は捨て牌インデックスを常にスキップする)、
+      // 打牌後の手牌で捨てた牌そのものを和了牌として直接判定し直す必要がある。
+      // 和了形になる場合は待ち牌一覧・枚数・点数レンジにも他の待ちと同じ扱いで合流させる。
+      const selfRon = cachedCalcAlmighty(
+        { ...input, concealed: after, winTile: { t: tile }, isTsumo: false, firstTake: false },
+        opts,
+      )
+      const selfTsumo = cachedCalcAlmighty(
+        { ...input, concealed: after, winTile: { t: tile }, isTsumo: true, firstTake: false },
+        opts,
+      )
+      const furiten = hasAgariShape(selfRon, selfTsumo)
+      if (furiten) ws.add(tile)
+
+      const waits = [...ws].sort((a, b) => a - b)
       const totals: number[] = []
       let hasNoYakuWait = false
       const validWaits: TileId[] = []
@@ -264,20 +280,6 @@ export function analyzeDiscards(input: AnalysisInput, opts: RuleOptions): Discar
         : null
 
       const totalRemaining = validWaits.reduce((acc, w) => acc + remainingOf(w, input), 0)
-
-      // 振聴判定: calcHairi の待ち計算は「捨てた牌自身」を構造的に待ちから除外するため
-      // (riichi-rust の hairi 実装は捨て牌インデックスを常にスキップする)、
-      // 打牌後の手牌で捨てた牌そのものを和了牌として直接判定し直す必要がある。
-      const selfWinTile: TileInstance = { t: tile }
-      const selfRon = cachedCalcAlmighty(
-        { ...input, concealed: after, winTile: selfWinTile, isTsumo: false, firstTake: false },
-        opts,
-      )
-      const selfTsumo = cachedCalcAlmighty(
-        { ...input, concealed: after, winTile: selfWinTile, isTsumo: true, firstTake: false },
-        opts,
-      )
-      const furiten = hasAgariShape(selfRon, selfTsumo)
 
       return { tile, waits: validWaits, totalRemaining, scoreRange, hasNoYakuWait, furiten }
     })
