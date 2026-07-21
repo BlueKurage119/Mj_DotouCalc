@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { basePoints, calcPayment } from '../src/core/payment'
+import { basePoints, calcPayment, nextTierHint } from '../src/core/payment'
 
 const base = {
   yakuman: 0,
@@ -27,6 +27,27 @@ describe('basePoints', () => {
   it('役満', () => {
     expect(basePoints(0, 0, 1, false)).toEqual({ base: 8000, rank: '役満' })
     expect(basePoints(0, 0, 2, false)).toEqual({ base: 16000, rank: '2倍役満' })
+  })
+})
+
+describe('nextTierHint (＋N飜で◯◯)', () => {
+  it('満貫未満は満貫までの飜数', () => {
+    expect(nextTierHint(3, 30, 0, false)).toBe('＋2飜で満貫') // 4翻30符=7700なので+2で満貫
+    expect(nextTierHint(3, 40, 0, false)).toBe('＋1飜で満貫') // 4翻40符=満貫
+    expect(nextTierHint(1, 40, 0, false)).toBe('＋3飜で満貫')
+  })
+  it('満貫以上は次の点数帯まで', () => {
+    expect(nextTierHint(5, 30, 0, false)).toBe('＋1飜で跳満')
+    expect(nextTierHint(6, 30, 0, false)).toBe('＋2飜で倍満')
+    expect(nextTierHint(8, 30, 0, false)).toBe('＋3飜で三倍満')
+    expect(nextTierHint(11, 30, 0, false)).toBe('＋2飜で数え役満')
+  })
+  it('役満・数え役満はヒントなし', () => {
+    expect(nextTierHint(13, 30, 0, false)).toBeNull()
+    expect(nextTierHint(0, 0, 1, false)).toBeNull()
+  })
+  it('切り上げ満貫ありなら30符3翻は+1飜で満貫', () => {
+    expect(nextTierHint(3, 30, 0, true)).toBe('＋1飜で満貫')
   })
 })
 

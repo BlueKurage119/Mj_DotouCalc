@@ -1,19 +1,18 @@
 import type { DiscardsOutcome, WaitsOutcome } from '../core/analysis'
 import type { TileId } from '../core/tiles'
-import { TileFace } from './TileFace'
+import { TileImage } from './TileImage'
 
-function ScoreCell({ label, total, rank }: { label: string; total?: number; rank?: string }) {
-  if (total === undefined) {
-    return (
-      <span className="wait-score noyaku">
-        {label} <em>役なし</em>
-      </span>
-    )
-  }
+function ScoreCell({ label, total }: { label: string; total?: number }) {
   return (
-    <span className="wait-score">
-      {label} <strong>{total.toLocaleString()}</strong>
-      {rank && <em className="rank">{rank}</em>}
+    <span className="wait-score-col">
+      <span className="score-label">{label}</span>
+      <span className="score-value">
+        {total === undefined ? (
+          <em className="noyaku">役なし</em>
+        ) : (
+          <strong>{total.toLocaleString()}</strong>
+        )}
+      </span>
     </span>
   )
 }
@@ -50,29 +49,16 @@ export function WaitsPanel({
         <ul className="wait-list">
           {outcome.waits.map((w) => (
             <li key={w.tile}>
-              <button className="wait-row" onClick={() => onPickWait(w.tile)}>
-                <span className="wait-tile">
-                  <TileFace tile={{ t: w.tile }} />
-                </span>
-                <span className="wait-left">残{w.remaining}枚</span>
-                {w.noYaku ? (
-                  <span className="wait-score noyaku">
-                    <em>形式聴牌 (役なし)</em>
+              {/* 点数は右寄せの2カラムで縦のラインを揃える */}
+              <button className="wait-row wait-columns" onClick={() => onPickWait(w.tile)}>
+                <span className="wait-id">
+                  <span className="wait-tile">
+                    <TileImage tile={{ t: w.tile }} />
                   </span>
-                ) : (
-                  <>
-                    <ScoreCell
-                      label="ロン"
-                      total={w.ron?.payment.total}
-                      rank={w.ron?.payment.rank}
-                    />
-                    <ScoreCell
-                      label="ツモ"
-                      total={w.tsumo?.payment.total}
-                      rank={w.tsumo?.payment.rank}
-                    />
-                  </>
-                )}
+                  <span className="wait-left">残{w.remaining}枚</span>
+                </span>
+                <ScoreCell label="ロン" total={w.ron?.payment.total} />
+                <ScoreCell label="ツモ" total={w.tsumo?.payment.total} />
               </button>
             </li>
           ))}
@@ -86,9 +72,12 @@ export function WaitsPanel({
 export function DiscardsPanel({
   outcome,
   onDiscard,
+  showBanner = true,
 }: {
   outcome: DiscardsOutcome
   onDiscard: (tile: TileId) => void
+  /** 「既にツモ和了できます」バナーの表示可否 (既に和了表示中なら不要) */
+  showBanner?: boolean
 }) {
   if (!outcome.ok) {
     return (
@@ -99,7 +88,7 @@ export function DiscardsPanel({
   }
   return (
     <section className="result">
-      {outcome.tsumoWinPossible && (
+      {showBanner && outcome.tsumoWinPossible && (
         <div className="analysis-banner">この手は万能牌の解釈により既にツモ和了できます</div>
       )}
       <div className="analysis-card">
@@ -115,15 +104,17 @@ export function DiscardsPanel({
               <li key={d.tile}>
                 <button className="wait-row" onClick={() => onDiscard(d.tile)}>
                   <span className="wait-tile">
-                    <TileFace tile={{ t: d.tile }} />
+                    <TileImage tile={{ t: d.tile }} />
                   </span>
                   <span className="discard-arrow">切→</span>
                   <span className="discard-waits">
                     {d.waits.map((w) => (
-                      <TileFace key={w} tile={{ t: w }} />
+                      <TileImage key={w} tile={{ t: w }} />
                     ))}
                   </span>
-                  <span className="wait-left">計{d.totalRemaining}枚</span>
+                  <span className="wait-left">
+                    {d.waits.length}種{d.totalRemaining}枚
+                  </span>
                 </button>
               </li>
             ))}
