@@ -133,6 +133,19 @@ describe('通常方式', () => {
     expect(p.total).toBe(2000)
     expect(p.detail).not.toContain('オール')
   })
+  it('親ツモ 満貫 子2人でもオール表記 (境界値)', () => {
+    const p = calcPayment({
+      ...base,
+      han: 5,
+      fu: 30,
+      isTsumo: true,
+      mode: 'standard',
+      isDealer: true,
+      koPayers: 2,
+    })
+    expect(p.total).toBe(8000)
+    expect(p.detail).toContain('4000オール')
+  })
   it('親ツモ 満貫 子1人のみなら「オール」を付けない', () => {
     const p = calcPayment({
       ...base,
@@ -144,6 +157,7 @@ describe('通常方式', () => {
       koPayers: 1,
     })
     expect(p.total).toBe(4000)
+    expect(p.detail).toContain('4000')
     expect(p.detail).not.toContain('オール')
   })
   it('子ロン 40符1翻 1300', () => {
