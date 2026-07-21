@@ -236,6 +236,23 @@ export function analyzeDiscards(input: AnalysisInput, opts: RuleOptions): Discar
     }
   }
 
+  // calcHairi の waitsAfterDiscard は「捨てた牌自身」を待ちから除外するため、捨て牌のみが
+  // 待ちになる打牌候補は waitsAfterDiscard に一切現れず、その打牌エントリ自体が生成されない。
+  // 例: 555m/555p/555s ポン + 2m2m南南 で 南 を切ると 2m/南 のシャンポンだが、片割れの
+  // 南 は振聴のため waitsAfterDiscard から消え、打南の行ごと欠落する。
+  // 実牌の各種について打牌後の手牌の待ちを直接発見し (calcHairi の wait は待ち計算で
+  // 捨て牌を除外しないため振聴牌も含む)、候補集合に無ければ seed して拾う。
+  for (const tile of realCounts.keys()) {
+    if (discardWaits.has(tile)) continue
+    const afterIds = removeOneTile(input.concealed, tile).map((x) => x.t)
+    const ws = new Set<TileId>()
+    for (const sub of ALL_TILES) {
+      const h = calcHairi([...afterIds, sub].sort((a, b) => a - b), melds)
+      if (h && h.now === 0) for (const w of h.waits) ws.add(w)
+    }
+    if (ws.size > 0) discardWaits.set(tile, ws)
+  }
+
   const discards: DiscardInfo[] = [...discardWaits.entries()]
     .map(([tile, ws]) => {
       const after = removeOneTile(input.concealed, tile)

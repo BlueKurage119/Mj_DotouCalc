@@ -273,6 +273,30 @@ describe('何切る分析 (analyzeDiscards)', () => {
     expect(d9s.waits).toContain(27)
   })
 
+  it('振聴: 捨て牌のみが待ちの打牌候補も行が生成される (calcHairi の省略を補完)', () => {
+    // 副露3組(ポン555m/555p/555s) + 2m2m南南。南を切ると 2m/南 のシャンポン聴牌だが、
+    // 片割れの南は振聴のため calcHairi の waitsAfterDiscard から除外され、打南の行ごと
+    // 欠落してしまう。seed 補完により打南の行が生成され、待ちには 2m と南の両方が入る。
+    const out = analyzeDiscards(
+      {
+        ...baseInput,
+        melds: [
+          { type: 'pon', tiles: t('5m 5m 5m') },
+          { type: 'pon', tiles: t('5p 5p 5p') },
+          { type: 'pon', tiles: t('5s 5s 5s') },
+        ],
+        concealed: t('2m 2m 南 南'),
+      },
+      dotou,
+    )
+    expect(out.ok).toBe(true)
+    const dNan = out.discards.find((d) => d.tile === 29)! // 南切り
+    expect(dNan).toBeDefined()
+    expect(dNan.furiten).toBe(true)
+    expect(dNan.waits).toContain(29) // 南 (振聴の片割れ)
+    expect(dNan.waits).toContain(2) // 2m
+  })
+
   it('振聴ではない通常の打牌候補は furiten=false', () => {
     const out = analyzeDiscards(
       {
