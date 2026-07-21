@@ -95,7 +95,7 @@ export function Tenkey({
         commitSuit(e.key.toLowerCase() as 'm' | 'p' | 's' | 'z')
       } else if (e.key === 'Backspace') {
         backspace()
-      } else if (e.key === 'Delete') {
+      } else if (e.key === 'Delete' || e.key.toLowerCase() === 'a') {
         clearZone()
       } else if (e.key === 'Enter' || e.key === 'Escape') {
         onClose()

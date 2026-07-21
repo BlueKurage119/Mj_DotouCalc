@@ -51,7 +51,9 @@ function CandidateCard({
         <span className="interp">
           <span className="side-badge">{side}</span>
           <TileImage tile={winTile} />
-          <TileImage tile={{ t: c.tile }} />
+          <span className="almighty-tile">
+            <TileImage tile={{ t: c.tile }} />
+          </span>
         </span>
         <span className="score">
           <strong>
@@ -127,7 +129,7 @@ function SideResult({
                     <IconClose />
                   </button>
                 </div>
-                <div className="others">
+                <div className="others sheet-scroll">
                   {rest.map((c) => (
                     <CandidateCard key={c.tile} c={c} side={side} winTile={winTile} kiriage={kiriage} />
                   ))}

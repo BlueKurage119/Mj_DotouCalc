@@ -442,48 +442,52 @@ export default function App() {
             </button>
           ))}
         </div>
-        <button className="text-btn" onClick={() => setView('settings')}>
+        <button className="text-btn icon-text-btn" onClick={() => setView('settings')}>
           <IconSettings /> 設定
         </button>
       </header>
 
       <main className="content">
-        <div className="seg-row">
-          <span className="seg-label">場風</span>
-          <div className="seg">
-            {WINDS.map((w) => (
-              <button
-                key={w}
-                className={roundWind === w ? 'on' : ''}
-                disabled={!options.roundWindYaku}
-                onClick={() => setRoundWind(w)}
-              >
-                {WIND_LABELS[w]}
-              </button>
-            ))}
+        <div className="wind-sections">
+          <div className="wind-section">
+            <span className="wind-label">場風</span>
+            <div className={`wind-seg${options.roundWindYaku ? '' : ' disabled'}`}>
+              {WINDS.map((w) => (
+                <button
+                  key={w}
+                  className={options.roundWindYaku && roundWind === w ? 'on' : ''}
+                  disabled={!options.roundWindYaku}
+                  onClick={() => setRoundWind(w)}
+                >
+                  {WIND_LABELS[w]}
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
-        <div className="seg-row">
-          <span className="seg-label">自風</span>
-          <div className="seg">
-            {WINDS.map((w) => (
-              <button
-                key={w}
-                className={seatWind === w ? 'on' : ''}
-                onClick={() => {
-                  setSeatWind(w)
-                  if (isStandard) setLuck((l) => ({ ...l, koPayers: w === EAST ? 3 : 2 }))
-                }}
-              >
-                {WIND_LABELS[w]}
-              </button>
-            ))}
+          <div className="wind-section">
+            <span className="wind-label">自風</span>
+            <div className="wind-seg">
+              {WINDS.map((w) => (
+                <button
+                  key={w}
+                  className={seatWind === w ? 'on' : ''}
+                  onClick={() => {
+                    setSeatWind(w)
+                    if (isStandard) setLuck((l) => ({ ...l, koPayers: w === EAST ? 3 : 2 }))
+                  }}
+                >
+                  {WIND_LABELS[w]}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
         <div className="chip-grid">
-          <button
+          <div
             className="chip"
+            role="button"
+            tabIndex={0}
             onClick={() => {
               setTenkeyError(null)
               setPopup({ kind: 'tenkey', target: 'dora' })
@@ -493,11 +497,25 @@ export default function App() {
             <span className="chip-value tiles">
               {doraInd.length === 0 ? 'なし' : doraInd.map((x, i) => <TileImage key={i} tile={x} />)}
             </span>
-          </button>
-          <button
+            {doraInd.length > 0 && (
+              <span
+                className="chip-clear"
+                aria-label="ドラをクリア"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setDoraInd([])
+                }}
+              >
+                <IconClose />
+              </span>
+            )}
+          </div>
+          <div
             className={`chip${riichiOn ? '' : ' disabled'}`}
-            disabled={!riichiOn}
+            role="button"
+            tabIndex={0}
             onClick={() => {
+              if (!riichiOn) return
               setTenkeyError(null)
               setPopup({ kind: 'tenkey', target: 'ura' })
             }}
@@ -510,7 +528,19 @@ export default function App() {
                   ? 'なし'
                   : uraInd.map((x, i) => <TileImage key={i} tile={x} />)}
             </span>
-          </button>
+            {riichiOn && uraInd.length > 0 && (
+              <span
+                className="chip-clear"
+                aria-label="裏ドラをクリア"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setUraInd([])
+                }}
+              >
+                <IconClose />
+              </span>
+            )}
+          </div>
         </div>
 
         <div

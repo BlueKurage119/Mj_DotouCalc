@@ -2,21 +2,16 @@ import type { DiscardsOutcome, WaitsOutcome } from '../core/analysis'
 import type { TileId } from '../core/tiles'
 import { TileImage } from './TileImage'
 
-function ScoreCell({ label, total, rank }: { label: string; total?: number; rank?: string }) {
-  if (total === undefined) {
-    return (
-      <span className="wait-score noyaku">
-        <span className="wait-score-label">{label}</span>
-        <span className="wait-score-value">役なし</span>
-      </span>
-    )
-  }
+function ScoreCell({ label, total }: { label: string; total?: number }) {
   return (
-    <span className="wait-score">
-      <span className="wait-score-label">{label}</span>
-      <span className="wait-score-value">
-        <strong>{total.toLocaleString()}</strong>
-        {rank && <em className="rank">{rank}</em>}
+    <span className="wait-score-col">
+      <span className="score-label">{label}</span>
+      <span className="score-value">
+        {total === undefined ? (
+          <em className="noyaku">役なし</em>
+        ) : (
+          <strong>{total.toLocaleString()}</strong>
+        )}
       </span>
     </span>
   )
@@ -56,16 +51,14 @@ export function WaitsPanel({
             <li key={w.tile}>
               {/* 点数は右寄せの2カラムで縦のラインを揃える */}
               <button className="wait-row wait-columns" onClick={() => onPickWait(w.tile)}>
-                <span className="wait-tile">
-                  <TileImage tile={{ t: w.tile }} />
+                <span className="wait-id">
+                  <span className="wait-tile">
+                    <TileImage tile={{ t: w.tile }} />
+                  </span>
+                  <span className="wait-left">残{w.remaining}枚</span>
                 </span>
-                <span className="wait-left">残{w.remaining}枚</span>
-                <ScoreCell label="ロン" total={w.ron?.payment.total} rank={w.ron?.payment.rank} />
-                <ScoreCell
-                  label="ツモ"
-                  total={w.tsumo?.payment.total}
-                  rank={w.tsumo?.payment.rank}
-                />
+                <ScoreCell label="ロン" total={w.ron?.payment.total} />
+                <ScoreCell label="ツモ" total={w.tsumo?.payment.total} />
               </button>
             </li>
           ))}
