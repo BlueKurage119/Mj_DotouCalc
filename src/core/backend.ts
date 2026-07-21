@@ -22,6 +22,8 @@ export interface BackendInput {
   lastTile: boolean
   kuitan: boolean
   doubleYakuman: boolean
+  /** 配牌時和了 (天和・地和)。ツモのみ有効。呼び出し側で isTsumo=false のときは渡さないこと */
+  firstTake: boolean
 }
 
 export interface BackendResult {
@@ -51,6 +53,7 @@ export function calcBackend(input: BackendInput): BackendResult {
         dora: [],
         aka_count: 0,
         allow_aka: false,
+        first_take: input.firstTake,
         riichi: input.riichi,
         double_riichi: input.doubleRiichi,
         ippatsu: input.ippatsu,

@@ -107,7 +107,7 @@ describe('聴牌分析 (analyzeWaits)', () => {
       const viaHairi = analyzeWaits(input, dotou).waits.map((w) => w.tile)
       const brute: number[] = []
       for (const w of ALL_TILES) {
-        const r = calcAlmighty({ ...input, winTile: { t: w }, isTsumo: false }, dotou)
+        const r = calcAlmighty({ ...input, winTile: { t: w }, isTsumo: false, firstTake: false }, dotou)
         if (r.ok || r.hadNoYaku) brute.push(w)
       }
       expect(viaHairi).toEqual(brute)
@@ -276,6 +276,18 @@ describe('何切る分析 (analyzeDiscards)', () => {
       dotou,
     )
     expect(out.discards.every((d) => d.furiten === false)).toBe(true)
+  })
+
+  it('firstTake が入力に紛れ込んでも結果に影響しない (#16 天和・地和は分析対象外)', () => {
+    const hand = t('2m 3m 4m 5m 6m 7m 2p 3p 4p 5s 中 中 9p')
+    const without = analyzeDiscards({ ...baseInput, concealed: hand }, dotou)
+    // AnalysisInput 型は firstTake を除外しているが、万一 baseInput 経由で紛れ込んでも
+    // analyzeDiscards 内部は常に firstTake: false を明示して calcAlmighty を呼ぶため無視される。
+    const withLeak = analyzeDiscards(
+      { ...baseInput, concealed: hand, firstTake: true } as unknown as AnalysisInput,
+      dotou,
+    )
+    expect(withLeak).toEqual(without)
   })
 
   it('立直・裏ドラの条件設定がレンジ計算に反映される', () => {

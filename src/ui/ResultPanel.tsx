@@ -151,14 +151,15 @@ export function ResultPanel({
   kiriage,
 }: {
   tsumo: CalcOutcome
-  ron: CalcOutcome
+  /** 天和・地和はツモ限定の役のため null (ロン非表示) */
+  ron: CalcOutcome | null
   winTile: TileInstance
   kiriage: boolean
 }) {
   return (
     <section className="result">
       <SideResult outcome={tsumo} side="ツモ" winTile={winTile} kiriage={kiriage} />
-      <SideResult outcome={ron} side="ロン" winTile={winTile} kiriage={kiriage} />
+      {ron && <SideResult outcome={ron} side="ロン" winTile={winTile} kiriage={kiriage} />}
     </section>
   )
 }

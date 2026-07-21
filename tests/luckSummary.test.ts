@@ -7,6 +7,7 @@ const base: LuckState = {
   rinshan: false,
   chankan: false,
   lastTile: false,
+  firstTake: false,
   koPayers: 3,
   dealerPays: true,
 }
@@ -30,5 +31,9 @@ describe('luckSummary', () => {
     expect(luckSummary({ ...base, riichiState: 'riichi', koPayers: 2 }, true, false)).toBe(
       '立直・ツモ払い 親+子2人',
     )
+  })
+  it('firstTake: 東家なら天和、それ以外なら地和と表示する', () => {
+    expect(luckSummary({ ...base, firstTake: true }, false, false, true)).toBe('天和')
+    expect(luckSummary({ ...base, firstTake: true }, false, false, false)).toBe('地和')
   })
 })

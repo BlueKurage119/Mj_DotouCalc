@@ -32,6 +32,8 @@ export interface HandInput {
   ippatsu: boolean
   afterKan: boolean // 嶺上開花(ツモ) / 搶槓(ロン)
   lastTile: boolean // 海底/河底
+  /** 配牌時和了 (天和・地和)。ツモのみ有効 */
+  firstTake: boolean
   doraIndicators: TileInstance[]
   uraIndicators: TileInstance[]
   /** ツモ時に支払う子の人数 (和了済・飛びの家は除く) */
@@ -166,6 +168,7 @@ export function calcAlmighty(input: HandInput, opts: RuleOptions): CalcOutcome {
       lastTile: input.lastTile,
       kuitan: opts.kuitan,
       doubleYakuman: opts.doubleYakuman,
+      firstTake: input.firstTake && input.isTsumo,
     })
     if (!r.agari) continue
     if (r.noYaku) {
@@ -212,15 +215,7 @@ export function calcAlmighty(input: HandInput, opts: RuleOptions): CalcOutcome {
     candidates.push({ tile: sub, yakuman: r.yakuman, han, fu: r.fu, yaku, dora: { omote, ura, aka: akaCount, almighty: almightyOmote + almightyUra }, payment, rankTotal })
   }
 
-  candidates.sort(
-    (a, b) =>
-      b.rankTotal - a.rankTotal ||
-      b.payment.total - a.payment.total ||
-      b.yakuman - a.yakuman ||
-      b.han - a.han ||
-      b.fu - a.fu ||
-      a.tile - b.tile,
-  )
+  candidates.sort(compareCandidates)
 
   if (candidates.length === 0) {
     return {
@@ -233,4 +228,60 @@ export function calcAlmighty(input: HandInput, opts: RuleOptions): CalcOutcome {
     }
   }
   return { ok: true, best: candidates[0], candidates, hadNoYaku }
+}
+
+function compareCandidates(a: Candidate, b: Candidate): number {
+  return (
+    b.rankTotal - a.rankTotal ||
+    b.payment.total - a.payment.total ||
+    b.yakuman - a.yakuman ||
+    b.han - a.han ||
+    b.fu - a.fu ||
+    a.tile - b.tile
+  )
+}
+
+/**
+ * 配牌時和了 (天和・地和) の高目判定。
+ * 手牌13枚のうちどれを和了牌として扱うかで、国士無双十三面待ち・純正九蓮宝燈・
+ * 四暗刻単騎などの上位役が変わるため、実牌の各牌種を和了牌として全列挙し、
+ * 最も点数の高い解釈 (calcAlmighty の候補比較と同じ基準) を採用する。
+ * ツモ限定 (天和・地和はツモでのみ成立する役のため、常に isTsumo=true・firstTake=true で計算)。
+ */
+export function calcAlmightyFirstTake(
+  input: Omit<HandInput, 'winTile' | 'isTsumo' | 'firstTake'>,
+  opts: RuleOptions,
+): { outcome: CalcOutcome; winTile: TileInstance } {
+  const tried = new Set<TileId>()
+  let best: { outcome: CalcOutcome; winTile: TileInstance } | null = null
+  let hadNoYaku = false
+
+  for (const candidate of input.concealed) {
+    if (tried.has(candidate.t)) continue
+    tried.add(candidate.t)
+
+    const rest = input.concealed.filter((x) => x !== candidate)
+    const outcome = calcAlmighty(
+      { ...input, concealed: rest, winTile: candidate, isTsumo: true, firstTake: true },
+      opts,
+    )
+    if (outcome.hadNoYaku) hadNoYaku = true
+    if (!outcome.ok) continue
+    if (!best || compareCandidates(outcome.best!, best.outcome.best!) < 0) {
+      best = { outcome, winTile: candidate }
+    }
+  }
+
+  if (!best) {
+    return {
+      outcome: {
+        ok: false,
+        error: hadNoYaku ? '和了形にはなりますが役がありません' : 'どの牌でも和了形になりません',
+        candidates: [],
+        hadNoYaku,
+      },
+      winTile: input.concealed[input.concealed.length - 1],
+    }
+  }
+  return best
 }

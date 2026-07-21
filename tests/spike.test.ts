@@ -136,4 +136,123 @@ describe('riichi-rs-bundlers spike', () => {
     expect(r.is_agari).toBe(true)
     console.log('fu/han/ten:', r.fu, r.han, r.ten)
   })
+
+  // #16 天和・地和対応: first_take オプションの実挙動確認
+  it('親のツモ + first_take -> 天和(Yaku.Tenhou)が単独役満として発火する', () => {
+    const r = calc({
+      closed_part: [
+        Tile.M1, Tile.M2, Tile.M3, Tile.M4, Tile.M5, Tile.M6, Tile.M7, Tile.M8, Tile.M9,
+        Tile.S1, Tile.S2, Tile.S3,
+        Tile.East, Tile.East,
+      ],
+      open_part: [],
+      options: { first_take: true, bakaze: Tile.South, jikaze: Tile.East },
+    })
+    expect(r.is_agari).toBe(true)
+    expect(r.yakuman).toBe(1)
+    expect(r.yaku[Yaku.Tenhou]).toBe(13)
+    expect(r.yaku[Yaku.Chihou]).toBeUndefined()
+  })
+
+  it('子のツモ + first_take -> 地和(Yaku.Chihou)が単独役満として発火する', () => {
+    const r = calc({
+      closed_part: [
+        Tile.M1, Tile.M2, Tile.M3, Tile.M4, Tile.M5, Tile.M6, Tile.M7, Tile.M8, Tile.M9,
+        Tile.S1, Tile.S2, Tile.S3,
+        Tile.East, Tile.East,
+      ],
+      open_part: [],
+      options: { first_take: true, bakaze: Tile.South, jikaze: Tile.South },
+    })
+    expect(r.is_agari).toBe(true)
+    expect(r.yakuman).toBe(1)
+    expect(r.yaku[Yaku.Chihou]).toBe(13)
+    expect(r.yaku[Yaku.Tenhou]).toBeUndefined()
+  })
+
+  it('ロン + first_take は人和(Yaku.Renhou)を発火せず通常のロン判定になる', () => {
+    const r = calc({
+      closed_part: [
+        Tile.M1, Tile.M2, Tile.M3, Tile.M4, Tile.M5, Tile.M6, Tile.M7, Tile.M8, Tile.M9,
+        Tile.S1, Tile.S2, Tile.S3,
+        Tile.East,
+      ],
+      open_part: [],
+      options: {
+        first_take: true,
+        tile_discarded_by_someone: Tile.East,
+        bakaze: Tile.South,
+        jikaze: Tile.South,
+      },
+    })
+    expect(r.is_agari).toBe(true)
+    expect(r.yakuman).toBe(0)
+    expect(r.yaku[Yaku.Renhou]).toBeUndefined()
+  })
+
+  it('first_take + riichi/last_tile を同時指定しても天和の判定を阻害しない', () => {
+    const r = calc({
+      closed_part: [
+        Tile.M1, Tile.M2, Tile.M3, Tile.M4, Tile.M5, Tile.M6, Tile.M7, Tile.M8, Tile.M9,
+        Tile.S1, Tile.S2, Tile.S3,
+        Tile.East, Tile.East,
+      ],
+      open_part: [],
+      options: {
+        first_take: true,
+        riichi: true,
+        last_tile: true,
+        bakaze: Tile.South,
+        jikaze: Tile.East,
+      },
+    })
+    expect(r.is_agari).toBe(true)
+    expect(r.yakuman).toBe(1)
+    expect(r.yaku[Yaku.Tenhou]).toBe(13)
+  })
+
+  it('天和 + 四暗刻単騎 (allow_double_yakuman) -> 3倍役満として複合する', () => {
+    // 111m 222m 333m 444m 55p (単騎待ち5p) の四暗刻単騎
+    const r = calc({
+      closed_part: [
+        Tile.M1, Tile.M1, Tile.M1,
+        Tile.M2, Tile.M2, Tile.M2,
+        Tile.M3, Tile.M3, Tile.M3,
+        Tile.M4, Tile.M4, Tile.M4,
+        Tile.P5, Tile.P5,
+      ],
+      open_part: [],
+      options: {
+        first_take: true,
+        bakaze: Tile.South,
+        jikaze: Tile.East,
+        allow_double_yakuman: true,
+      },
+    })
+    expect(r.is_agari).toBe(true)
+    expect(r.yakuman).toBe(3) // 四暗刻単騎(ダブル役満=2) + 天和(1)
+    expect(r.yaku[Yaku.SuuankouTanki]).toBe(26)
+    expect(r.yaku[Yaku.Tenhou]).toBe(13)
+  })
+
+  it('天和 + 純正九蓮宝燈 (allow_double_yakuman) -> 3倍役満として複合する', () => {
+    const r = calc({
+      closed_part: [
+        Tile.P1, Tile.P1, Tile.P1,
+        Tile.P2, Tile.P3, Tile.P4, Tile.P5, Tile.P6, Tile.P7, Tile.P8,
+        Tile.P9, Tile.P9, Tile.P9, Tile.P9,
+      ],
+      open_part: [],
+      options: {
+        first_take: true,
+        bakaze: Tile.South,
+        jikaze: Tile.East,
+        allow_double_yakuman: true,
+      },
+    })
+    expect(r.is_agari).toBe(true)
+    expect(r.yakuman).toBe(3) // 純正九蓮宝燈(ダブル役満=2) + 天和(1)
+    expect(r.yaku[Yaku.Chuurenpoto9Sides]).toBe(26)
+    expect(r.yaku[Yaku.Tenhou]).toBe(13)
+  })
 })
