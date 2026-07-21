@@ -440,7 +440,8 @@ button {
   margin: -2px 0 6px;
 }
 
-.help-btn {
+/* ヘルプは✕ボタンのすぐ左に配置 (.sheet-close の margin-left より優先させる) */
+.sheet-close.help-btn {
   margin-left: auto;
   color: var(--sub);
 }
@@ -727,6 +728,12 @@ button {
 }
 
 /* 万能牌は和了牌より一回り小さく (約80%)、下揃え */
+.interp .almighty-tile {
+  display: inline-flex;
+  align-items: flex-end;
+  line-height: 0;
+}
+
 .interp .almighty-tile .tile-img {
   width: 26px;
 }
