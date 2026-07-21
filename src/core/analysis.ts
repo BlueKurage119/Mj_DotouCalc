@@ -54,6 +54,8 @@ export interface DiscardInfo {
   scoreRange: DiscardScoreRange | null
   /** ロン・ツモともに役なしになる待ちが1つ以上あるか */
   hasNoYakuWait: boolean
+  /** 振聴 (この牌を切った後の待ちに、切った牌自身が含まれる。例: 2p切り2p待ち) */
+  furiten: boolean
 }
 
 export interface DiscardsOutcome {
@@ -252,7 +254,15 @@ export function analyzeDiscards(input: AnalysisInput, opts: RuleOptions): Discar
 
       const totalRemaining = validWaits.reduce((acc, w) => acc + remainingOf(w, input), 0)
 
-      return { tile, waits: validWaits, totalRemaining, scoreRange, hasNoYakuWait }
+      // 振聴判定: calcHairi の待ち計算は「捨てた牌自身」を構造的に待ちから除外するため
+      // (riichi-rust の hairi 実装は捨て牌インデックスを常にスキップする)、
+      // 打牌後の手牌で捨てた牌そのものを和了牌として直接判定し直す必要がある。
+      const selfWinTile: TileInstance = { t: tile }
+      const selfRon = cachedCalcAlmighty({ ...input, concealed: after, winTile: selfWinTile, isTsumo: false }, opts)
+      const selfTsumo = cachedCalcAlmighty({ ...input, concealed: after, winTile: selfWinTile, isTsumo: true }, opts)
+      const furiten = hasAgariShape(selfRon, selfTsumo)
+
+      return { tile, waits: validWaits, totalRemaining, scoreRange, hasNoYakuWait, furiten }
     })
     .filter((d) => d.waits.length > 0)
     .sort((a, b) => b.totalRemaining - a.totalRemaining || a.tile - b.tile)

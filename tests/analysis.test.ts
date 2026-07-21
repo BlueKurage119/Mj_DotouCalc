@@ -241,6 +241,43 @@ describe('何切る分析 (analyzeDiscards)', () => {
     expect(d9s.scoreRange).not.toBeNull()
   })
 
+  it('振聴: シャンポン待ちの一方を切ると、その牌自身が待ちに含まれる (2p切り2p待ち相当)', () => {
+    // 副露3組(2m2m2m, 5p5p5p, 8p8p8p) + 1s1s9s9s のシャンポン形。
+    // 1sを切ると残りは1s9s9sとなり、万能牌で1s9s9sの1sを補って1s1s+9s9sのシャンポンに戻るため、
+    // 切った1s自身が待ちに含まれる (9sを切った場合も同様)。
+    const out = analyzeDiscards(
+      {
+        ...baseInput,
+        melds: [
+          { type: 'pon', tiles: t('2m 2m 2m') },
+          { type: 'pon', tiles: t('5p 5p 5p') },
+          { type: 'pon', tiles: t('8p 8p 8p') },
+        ],
+        concealed: t('1s 1s 9s 9s'),
+      },
+      dotou,
+    )
+    expect(out.ok).toBe(true)
+    const d1s = out.discards.find((d) => d.tile === 19)! // 1s切り
+    expect(d1s).toBeDefined()
+    expect(d1s.waits).toContain(20) // 2s
+    expect(d1s.furiten).toBe(true)
+    const d9s = out.discards.find((d) => d.tile === 27)! // 9s切り
+    expect(d9s).toBeDefined()
+    expect(d9s.furiten).toBe(true)
+  })
+
+  it('振聴ではない通常の打牌候補は furiten=false', () => {
+    const out = analyzeDiscards(
+      {
+        ...baseInput,
+        concealed: t('2m 3m 4m 5m 6m 7m 2p 3p 4p 5s 中 中 9p'),
+      },
+      dotou,
+    )
+    expect(out.discards.every((d) => d.furiten === false)).toBe(true)
+  })
+
   it('立直・裏ドラの条件設定がレンジ計算に反映される', () => {
     const hand = t('2m 3m 4m 5m 6m 7m 2p 3p 4p 5s 中 中 9p')
     const without = analyzeDiscards({ ...baseInput, concealed: hand }, dotou)
