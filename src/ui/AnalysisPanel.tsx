@@ -111,8 +111,11 @@ export function DiscardsPanel({
           <ul className="wait-list">
             {outcome.discards.map((d) => (
               <li key={d.tile}>
-                <button className="wait-row" onClick={() => onDiscard(d.tile)}>
-                  <span className="wait-tile">
+                <button
+                  className={`wait-row${d.furiten ? ' furiten' : ''}`}
+                  onClick={() => onDiscard(d.tile)}
+                >
+                  <span className={`wait-tile${d.furiten ? ' furiten-tile' : ''}`}>
                     <TileImage tile={{ t: d.tile }} />
                   </span>
                   <span className="discard-arrow">切→</span>
@@ -124,6 +127,7 @@ export function DiscardsPanel({
                   <span className="discard-info">
                     <span className="wait-left">
                       {d.waits.length}種{d.totalRemaining}枚
+                      {d.furiten && <span className="furiten-badge">振聴</span>}
                     </span>
                     <span className="discard-range">{formatDiscardRange(d)}</span>
                   </span>

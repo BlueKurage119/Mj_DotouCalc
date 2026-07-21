@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { calcAlmighty, type MeldInput, type MeldType } from './core/almighty'
+import { calcAlmighty, calcAlmightyFirstTake, type CalcOutcome, type MeldInput, type MeldType } from './core/almighty'
 import { analyzeDiscards, analyzeWaits } from './core/analysis'
 import { PRESETS, type PresetId, type RuleOptions } from './core/options'
 import {
@@ -56,6 +56,7 @@ export default function App() {
     rinshan: false,
     chankan: false,
     lastTile: false,
+    firstTake: false,
     koPayers: 3,
     dealerPays: true,
   })
@@ -71,6 +72,7 @@ export default function App() {
   const riichiOn = luck.riichiState !== 'none'
   const hasOpenMeld = melds.some((m) => m.type !== 'ankan' && m.tiles.length > 0)
   const activeMelds = melds.filter((m) => m.tiles.length > 0)
+  const hasAnyMeld = activeMelds.length > 0
   const cap = 13 - 3 * activeMelds.length
 
   const allUsed: TileInstance[] = useMemo(
@@ -210,7 +212,13 @@ export default function App() {
     // 手牌があふれる場合は末尾から削る
     const newCap = 13 - 3 * next.filter((m) => m.tiles.length > 0).length
     if (hand.length > newCap) setHand(hand.slice(0, newCap))
-    if (newType !== 'ankan') setLuck((l) => ({ ...l, riichiState: 'none', ippatsu: false }))
+    // 副露(暗槓含む)が確定した時点で天和・地和は成立しなくなる。
+    // 明槓/チー/ポンは立直・一発も無効にする。
+    setLuck((l) => ({
+      ...l,
+      firstTake: false,
+      ...(newType !== 'ankan' ? { riichiState: 'none' as const, ippatsu: false } : {}),
+    }))
     return null
   }
 
@@ -348,22 +356,29 @@ export default function App() {
   )
 
   // 13枚相当: 末尾を和了牌としてツモ・ロン両方を計算。和了形でなければ何切る
-  const scoreTsumo = useMemo(() => {
+  // 天和・地和 (luck.firstTake) の場合は、どの牌を和了牌として扱うかで
+  // 国士十三面・純正九蓮宝燈・四暗刻単騎などの上位役が変わるため高目を自動選択する。
+  // また天和・地和はツモ限定の役のためロン側は計算しない。
+  const scoreTsumo = useMemo((): { outcome: CalcOutcome; winTile: TileInstance } | null => {
     if (!meldsComplete || hand.length !== cap) return null
-    return calcAlmighty(
+    if (luck.firstTake) return calcAlmightyFirstTake({ ...baseInput, concealed: hand }, options)
+    const winTile = hand[hand.length - 1]
+    const outcome = calcAlmighty(
       {
         ...baseInput,
         afterKan: luck.rinshan,
         concealed: hand.slice(0, -1),
-        winTile: hand[hand.length - 1],
+        winTile,
         isTsumo: true,
+        firstTake: false,
       },
       options,
     )
-  }, [meldsComplete, hand, cap, baseInput, luck.rinshan, options])
+    return { outcome, winTile }
+  }, [meldsComplete, hand, cap, baseInput, luck.rinshan, luck.firstTake, options])
 
-  const scoreRon = useMemo(() => {
-    if (!meldsComplete || hand.length !== cap) return null
+  const scoreRon = useMemo((): CalcOutcome | null => {
+    if (!meldsComplete || hand.length !== cap || luck.firstTake) return null
     return calcAlmighty(
       {
         ...baseInput,
@@ -371,13 +386,14 @@ export default function App() {
         concealed: hand.slice(0, -1),
         winTile: hand[hand.length - 1],
         isTsumo: false,
+        firstTake: false,
       },
       options,
     )
-  }, [meldsComplete, hand, cap, baseInput, luck.chankan, options])
+  }, [meldsComplete, hand, cap, baseInput, luck.chankan, luck.firstTake, options])
 
   const isWin =
-    (scoreTsumo !== null && (scoreTsumo.ok || scoreTsumo.hadNoYaku)) ||
+    (scoreTsumo !== null && (scoreTsumo.outcome.ok || scoreTsumo.outcome.hadNoYaku)) ||
     (scoreRon !== null && (scoreRon.ok || scoreRon.hadNoYaku))
 
   const discardsOutcome = useMemo(() => {
@@ -393,14 +409,21 @@ export default function App() {
 
   // ---------- 表示 ----------
   const sortedHand = useMemo(() => {
-    // 満杯時は末尾(和了牌)を除いてソートし、和了牌を右端に分けて表示
+    // 満杯時は和了牌を除いてソートし、和了牌を右端に分けて表示。
+    // 通常は末尾の牌が和了牌。天和・地和 (luck.firstTake) のときは高目判定で
+    // 選ばれた牌 (scoreTsumo.winTile) を和了牌として扱う。
     const winSeparate = hand.length === cap && hand.length > 0
-    const body = winSeparate ? hand.slice(0, -1) : hand
+    const winIndex = winSeparate
+      ? scoreTsumo
+        ? hand.indexOf(scoreTsumo.winTile)
+        : hand.length - 1
+      : -1
+    const body = winSeparate ? hand.filter((_, i) => i !== winIndex) : hand
     const sorted = body
-      .map((x, i) => ({ x, i }))
+      .map((x) => ({ x, i: hand.indexOf(x) }))
       .sort((a, b) => compareTiles(a.x, b.x))
-    return { sorted, win: winSeparate ? { x: hand[hand.length - 1], i: hand.length - 1 } : null }
-  }, [hand, cap])
+    return { sorted, win: winSeparate ? { x: hand[winIndex], i: winIndex } : null }
+  }, [hand, cap, scoreTsumo])
 
   if (view === 'settings') {
     return (
@@ -648,17 +671,17 @@ export default function App() {
 
         <button className="card luck-card" onClick={() => setPopup({ kind: 'luck' })}>
           <div className="card-label">立直・偶然役関係</div>
-          <div className="luck-summary">{luckSummary(luck, isStandard, isDealer)}</div>
+          <div className="luck-summary">{luckSummary(luck, isStandard, isDealer, seatWind === EAST)}</div>
         </button>
 
         <div className="result-area">
-          {isWin && scoreTsumo && scoreRon ? (
+          {isWin && scoreTsumo ? (
             <>
               <ResultPanel
-                tsumo={scoreTsumo}
+                tsumo={scoreTsumo.outcome}
                 ron={scoreRon}
                 kiriage={options.kiriage}
-                winTile={hand[hand.length - 1]}
+                winTile={scoreTsumo.winTile}
               />
               {discardsOutcome && (
                 <DiscardsPanel outcome={discardsOutcome} showBanner={false} onDiscard={discardTile} />
@@ -710,8 +733,10 @@ export default function App() {
           state={luck}
           patch={(p) => setLuck((l) => ({ ...l, ...p }))}
           hasOpenMeld={hasOpenMeld}
+          hasAnyMeld={hasAnyMeld}
           isStandard={isStandard}
           isDealer={isDealer}
+          isEast={seatWind === EAST}
           onClose={() => setPopup(null)}
         />
       )}

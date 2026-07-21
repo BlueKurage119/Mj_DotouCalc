@@ -931,6 +931,26 @@ button {
   font-style: normal;
 }
 
+.wait-row.furiten {
+  background: rgba(220, 60, 60, 0.08);
+}
+
+.furiten-tile {
+  border-radius: 4px;
+  background: rgba(220, 60, 60, 0.35);
+}
+
+.furiten-badge {
+  display: inline-block;
+  margin-left: 4px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #fff;
+  background: #d33c3c;
+  border-radius: 4px;
+  padding: 1px 5px;
+}
+
 /* 待ち一覧: 牌・枚数 / ロン / ツモ を同じ幅の3カラムにし、
    ラベルは左端、点数は右端で縦のラインを揃える */
 .wait-row.wait-columns {

@@ -107,7 +107,7 @@ describe('聴牌分析 (analyzeWaits)', () => {
       const viaHairi = analyzeWaits(input, dotou).waits.map((w) => w.tile)
       const brute: number[] = []
       for (const w of ALL_TILES) {
-        const r = calcAlmighty({ ...input, winTile: { t: w }, isTsumo: false }, dotou)
+        const r = calcAlmighty({ ...input, winTile: { t: w }, isTsumo: false, firstTake: false }, dotou)
         if (r.ok || r.hadNoYaku) brute.push(w)
       }
       expect(viaHairi).toEqual(brute)
@@ -239,6 +239,85 @@ describe('何切る分析 (analyzeDiscards)', () => {
     expect(d9s).toBeDefined()
     expect(d9s.hasNoYakuWait).toBe(true)
     expect(d9s.scoreRange).not.toBeNull()
+  })
+
+  it('振聴: シャンポン待ちの一方を切ると、その牌自身が待ちに含まれる (2p切り2p待ち相当)', () => {
+    // 副露3組(2m2m2m, 5p5p5p, 8p8p8p) + 1s1s9s9s のシャンポン形。
+    // 1sを切ると残りは1s9s9sとなり、万能牌で1s9s9sの1sを補って1s1s+9s9sのシャンポンに戻るため、
+    // 切った1s自身が待ちに含まれる (9sを切った場合も同様)。
+    const out = analyzeDiscards(
+      {
+        ...baseInput,
+        melds: [
+          { type: 'pon', tiles: t('2m 2m 2m') },
+          { type: 'pon', tiles: t('5p 5p 5p') },
+          { type: 'pon', tiles: t('8p 8p 8p') },
+        ],
+        concealed: t('1s 1s 9s 9s'),
+      },
+      dotou,
+    )
+    expect(out.ok).toBe(true)
+    const d1s = out.discards.find((d) => d.tile === 19)! // 1s切り
+    expect(d1s).toBeDefined()
+    expect(d1s.waits).toContain(20) // 2s
+    expect(d1s.furiten).toBe(true)
+    // 切った1s自身も待ち牌一覧に表示され、枚数集計にも含まれる
+    // (1s: 手牌2枚使用で残2枚 + 2s: 手牌0枚で残4枚 + 万能牌経由の他の待ち)
+    expect(d1s.waits).toContain(19)
+    const remaining1s = 2 // 4 - 手牌の1s2枚 (切った1枚は河、残り1枚は手中)
+    expect(d1s.totalRemaining).toBeGreaterThanOrEqual(remaining1s)
+    const d9s = out.discards.find((d) => d.tile === 27)! // 9s切り
+    expect(d9s).toBeDefined()
+    expect(d9s.furiten).toBe(true)
+    expect(d9s.waits).toContain(27)
+  })
+
+  it('振聴: 捨て牌のみが待ちの打牌候補も行が生成される (calcHairi の省略を補完)', () => {
+    // 副露3組(ポン555m/555p/555s) + 2m2m南南。南を切ると 2m/南 のシャンポン聴牌だが、
+    // 片割れの南は振聴のため calcHairi の waitsAfterDiscard から除外され、打南の行ごと
+    // 欠落してしまう。seed 補完により打南の行が生成され、待ちには 2m と南の両方が入る。
+    const out = analyzeDiscards(
+      {
+        ...baseInput,
+        melds: [
+          { type: 'pon', tiles: t('5m 5m 5m') },
+          { type: 'pon', tiles: t('5p 5p 5p') },
+          { type: 'pon', tiles: t('5s 5s 5s') },
+        ],
+        concealed: t('2m 2m 南 南'),
+      },
+      dotou,
+    )
+    expect(out.ok).toBe(true)
+    const dNan = out.discards.find((d) => d.tile === 29)! // 南切り
+    expect(dNan).toBeDefined()
+    expect(dNan.furiten).toBe(true)
+    expect(dNan.waits).toContain(29) // 南 (振聴の片割れ)
+    expect(dNan.waits).toContain(2) // 2m
+  })
+
+  it('振聴ではない通常の打牌候補は furiten=false', () => {
+    const out = analyzeDiscards(
+      {
+        ...baseInput,
+        concealed: t('2m 3m 4m 5m 6m 7m 2p 3p 4p 5s 中 中 9p'),
+      },
+      dotou,
+    )
+    expect(out.discards.every((d) => d.furiten === false)).toBe(true)
+  })
+
+  it('firstTake が入力に紛れ込んでも結果に影響しない (#16 天和・地和は分析対象外)', () => {
+    const hand = t('2m 3m 4m 5m 6m 7m 2p 3p 4p 5s 中 中 9p')
+    const without = analyzeDiscards({ ...baseInput, concealed: hand }, dotou)
+    // AnalysisInput 型は firstTake を除外しているが、万一 baseInput 経由で紛れ込んでも
+    // analyzeDiscards 内部は常に firstTake: false を明示して calcAlmighty を呼ぶため無視される。
+    const withLeak = analyzeDiscards(
+      { ...baseInput, concealed: hand, firstTake: true } as unknown as AnalysisInput,
+      dotou,
+    )
+    expect(withLeak).toEqual(without)
   })
 
   it('立直・裏ドラの条件設定がレンジ計算に反映される', () => {

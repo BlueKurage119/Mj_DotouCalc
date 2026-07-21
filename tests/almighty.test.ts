@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { calcAlmighty, type HandInput } from '../src/core/almighty'
+import { calcAlmighty, calcAlmightyFirstTake, type HandInput } from '../src/core/almighty'
 import { PRESETS } from '../src/core/options'
 import { EAST, SOUTH, type TileInstance } from '../src/core/tiles'
 
@@ -29,6 +29,7 @@ const baseInput: Omit<HandInput, 'concealed' | 'winTile'> = {
   ippatsu: false,
   afterKan: false,
   lastTile: false,
+  firstTake: false,
   doraIndicators: [],
   uraIndicators: [],
   koPayers: 3,
@@ -229,5 +230,88 @@ describe('万能牌の高目選択', () => {
     // 12種+万能牌の形は十三面待ち扱いになりダブル役満 (ダブル役満ありの設定)
     expect(out.best!.yakuman).toBeGreaterThanOrEqual(1)
     expect(out.best!.payment.total).toBeGreaterThanOrEqual(32000)
+  })
+})
+
+describe('天和・地和 (#16)', () => {
+  const firstTakeBase: Omit<HandInput, 'concealed' | 'winTile'> = {
+    ...baseInput,
+    isTsumo: true,
+    firstTake: true,
+  }
+
+  it('親のツモ + firstTake -> 天和 (yaku 13)', () => {
+    const out = calcAlmighty(
+      {
+        ...firstTakeBase,
+        seatWind: EAST,
+        concealed: t('2m 3m 4m 5m 6m 7m 2p 3p 4p 5s 中 中'),
+        winTile: t('5s')[0],
+      },
+      dotou,
+    )
+    expect(out.ok).toBe(true)
+    expect(out.best!.yakuman).toBeGreaterThanOrEqual(1)
+    expect(out.best!.yaku[13]).toBe(13)
+  })
+
+  it('子のツモ + firstTake -> 地和 (yaku 14)', () => {
+    const out = calcAlmighty(
+      {
+        ...firstTakeBase,
+        seatWind: SOUTH,
+        concealed: t('2m 3m 4m 5m 6m 7m 2p 3p 4p 5s 中 中'),
+        winTile: t('5s')[0],
+      },
+      dotou,
+    )
+    expect(out.ok).toBe(true)
+    expect(out.best!.yakuman).toBeGreaterThanOrEqual(1)
+    expect(out.best!.yaku[14]).toBe(13)
+  })
+
+  describe('calcAlmightyFirstTake: 高目の和了牌を自動選択する', () => {
+    const base = { ...baseInput, seatWind: EAST, roundWind: SOUTH }
+
+    it('国士無双12種+万能牌 -> 十三面待ち扱いでダブル役満+天和', () => {
+      const r = calcAlmightyFirstTake(
+        { ...base, concealed: t('1m 9m 1p 9p 1s 9s 東 南 西 北 白 發 中') },
+        dotou,
+      )
+      expect(r.outcome.ok).toBe(true)
+      expect(r.outcome.best!.yakuman).toBe(3) // 国士無双十三面(ダブル役満=2) + 天和(1)
+      expect(r.outcome.best!.yaku[0]).toBe(26) // 国士無双十三面待ち
+      expect(r.outcome.best!.yaku[13]).toBe(13)
+    })
+
+    it('純正九蓮宝燈の形 -> ダブル役満+天和', () => {
+      const r = calcAlmightyFirstTake(
+        { ...base, concealed: t('1p 1p 1p 2p 3p 4p 5p 6p 7p 8p 9p 9p 9p') },
+        dotou,
+      )
+      expect(r.outcome.ok).toBe(true)
+      expect(r.outcome.best!.yakuman).toBe(3)
+      expect(r.outcome.best!.yaku[2]).toBe(26) // 純正九蓮宝燈
+      expect(r.outcome.best!.yaku[13]).toBe(13)
+    })
+
+    it('四暗刻単騎の形 -> ダブル役満+天和', () => {
+      const r = calcAlmightyFirstTake(
+        { ...base, concealed: t('1m 1m 1m 2m 2m 2m 3m 3m 3m 4m 4m 4m 5p') },
+        dotou,
+      )
+      expect(r.outcome.ok).toBe(true)
+      expect(r.outcome.best!.yakuman).toBe(3)
+      expect(r.outcome.best!.yaku[4]).toBe(26) // 四暗刻単騎
+      expect(r.outcome.best!.yaku[13]).toBe(13)
+    })
+
+    it('ノーテン13枚は ok=false', () => {
+      const r = calcAlmightyFirstTake(
+        { ...base, concealed: t('1m 4m 7m 2p 5p 8p 3s 6s 9s 東 南 西 北') },
+        dotou,
+      )
+      expect(r.outcome.ok).toBe(false)
+    })
   })
 })

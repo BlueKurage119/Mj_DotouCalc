@@ -11,8 +11,12 @@ import {
   type TileInstance,
 } from './tiles'
 
-/** 和了牌・ツモロン区別を除いた手の状況 */
-export type AnalysisInput = Omit<HandInput, 'winTile' | 'isTsumo'>
+/**
+ * 和了牌・ツモロン区別を除いた手の状況。
+ * firstTake (天和・地和) はツモ和了時にのみ意味を持つ概念であり、
+ * 聴牌分析・何切る分析はどちらも「まだ和了していない状態」を扱うため対象外。
+ */
+export type AnalysisInput = Omit<HandInput, 'winTile' | 'isTsumo' | 'firstTake'>
 
 export interface WaitInfo {
   tile: TileId
@@ -54,6 +58,8 @@ export interface DiscardInfo {
   scoreRange: DiscardScoreRange | null
   /** ロン・ツモともに役なしになる待ちが1つ以上あるか */
   hasNoYakuWait: boolean
+  /** 振聴 (この牌を切った後の待ちに、切った牌自身が含まれる。例: 2p切り2p待ち) */
+  furiten: boolean
 }
 
 export interface DiscardsOutcome {
@@ -132,6 +138,7 @@ function cachedCalcAlmighty(input: HandInput, opts: RuleOptions): CalcOutcome {
     input.winTile.t,
     !!input.winTile.red,
     input.isTsumo,
+    input.firstTake,
     input.seatWind,
     input.roundWind,
     input.riichi,
@@ -176,8 +183,8 @@ export function analyzeWaits(input: AnalysisInput, opts: RuleOptions): WaitsOutc
   const waits: WaitInfo[] = []
   for (const w of [...waitSet].sort((a, b) => a - b)) {
     const winTile: TileInstance = { t: w }
-    const ron = cachedCalcAlmighty({ ...input, winTile, isTsumo: false }, opts)
-    const tsumo = cachedCalcAlmighty({ ...input, winTile, isTsumo: true }, opts)
+    const ron = cachedCalcAlmighty({ ...input, winTile, isTsumo: false, firstTake: false }, opts)
+    const tsumo = cachedCalcAlmighty({ ...input, winTile, isTsumo: true, firstTake: false }, opts)
     if (!hasAgariShape(ron, tsumo)) continue
     waits.push({
       tile: w,
@@ -229,17 +236,56 @@ export function analyzeDiscards(input: AnalysisInput, opts: RuleOptions): Discar
     }
   }
 
+  // calcHairi の waitsAfterDiscard は「捨てた牌自身」を待ちから除外するため、捨て牌のみが
+  // 待ちになる打牌候補は waitsAfterDiscard に一切現れず、その打牌エントリ自体が生成されない。
+  // 例: 555m/555p/555s ポン + 2m2m南南 で 南 を切ると 2m/南 のシャンポンだが、片割れの
+  // 南 は振聴のため waitsAfterDiscard から消え、打南の行ごと欠落する。
+  // 実牌の各種について打牌後の手牌の待ちを直接発見し (calcHairi の wait は待ち計算で
+  // 捨て牌を除外しないため振聴牌も含む)、候補集合に無ければ seed して拾う。
+  for (const tile of realCounts.keys()) {
+    if (discardWaits.has(tile)) continue
+    const afterIds = removeOneTile(input.concealed, tile).map((x) => x.t)
+    const ws = new Set<TileId>()
+    for (const sub of ALL_TILES) {
+      const h = calcHairi([...afterIds, sub].sort((a, b) => a - b), melds)
+      if (h && h.now === 0) for (const w of h.waits) ws.add(w)
+    }
+    if (ws.size > 0) discardWaits.set(tile, ws)
+  }
+
   const discards: DiscardInfo[] = [...discardWaits.entries()]
     .map(([tile, ws]) => {
-      const waits = [...ws].sort((a, b) => a - b)
       const after = removeOneTile(input.concealed, tile)
+
+      // 振聴判定: calcHairi の待ち計算は「捨てた牌自身」を構造的に待ちから除外するため
+      // (riichi-rust の hairi 実装は捨て牌インデックスを常にスキップする)、
+      // 打牌後の手牌で捨てた牌そのものを和了牌として直接判定し直す必要がある。
+      // 和了形になる場合は待ち牌一覧・枚数・点数レンジにも他の待ちと同じ扱いで合流させる。
+      const selfRon = cachedCalcAlmighty(
+        { ...input, concealed: after, winTile: { t: tile }, isTsumo: false, firstTake: false },
+        opts,
+      )
+      const selfTsumo = cachedCalcAlmighty(
+        { ...input, concealed: after, winTile: { t: tile }, isTsumo: true, firstTake: false },
+        opts,
+      )
+      const furiten = hasAgariShape(selfRon, selfTsumo)
+      if (furiten) ws.add(tile)
+
+      const waits = [...ws].sort((a, b) => a - b)
       const totals: number[] = []
       let hasNoYakuWait = false
       const validWaits: TileId[] = []
       for (const w of waits) {
         const winTile: TileInstance = { t: w }
-        const ron = cachedCalcAlmighty({ ...input, concealed: after, winTile, isTsumo: false }, opts)
-        const tsumo = cachedCalcAlmighty({ ...input, concealed: after, winTile, isTsumo: true }, opts)
+        const ron = cachedCalcAlmighty(
+          { ...input, concealed: after, winTile, isTsumo: false, firstTake: false },
+          opts,
+        )
+        const tsumo = cachedCalcAlmighty(
+          { ...input, concealed: after, winTile, isTsumo: true, firstTake: false },
+          opts,
+        )
         if (!hasAgariShape(ron, tsumo)) continue
         validWaits.push(w)
         if (ron.ok) totals.push(ron.best!.payment.total)
@@ -252,7 +298,7 @@ export function analyzeDiscards(input: AnalysisInput, opts: RuleOptions): Discar
 
       const totalRemaining = validWaits.reduce((acc, w) => acc + remainingOf(w, input), 0)
 
-      return { tile, waits: validWaits, totalRemaining, scoreRange, hasNoYakuWait }
+      return { tile, waits: validWaits, totalRemaining, scoreRange, hasNoYakuWait, furiten }
     })
     .filter((d) => d.waits.length > 0)
     .sort((a, b) => b.totalRemaining - a.totalRemaining || a.tile - b.tile)
