@@ -132,10 +132,24 @@ export function calcAlmighty(input: HandInput, opts: RuleOptions): CalcOutcome {
   const baseOmote = countMatches(realIds, doraList)
   const baseUra = countMatches(realIds, uraList)
 
+  const handOnly = [
+    ...input.concealed.map((x) => x.t),
+    ...input.melds.flatMap((m) => m.tiles.map((x) => x.t)),
+  ]
+  const handCounts = countByTile(handOnly)
+
   const candidates: Candidate[] = []
   let hadNoYaku = false
 
   for (const sub of ALL_TILES) {
+    const winTileId = input.winTile.t
+    const winCount = handCounts.get(winTileId) ?? 0
+    const subCount = handCounts.get(sub) ?? 0
+
+    if (winCount >= 4) continue
+    if (subCount >= 4) continue
+    if (winTileId === sub && winCount >= 3) continue
+
     const concealedIds = input.concealed.map((x) => x.t).concat([sub]).sort((a, b) => a - b)
     const closed = input.isTsumo ? [...concealedIds, input.winTile.t] : concealedIds
     const r = calcBackend({
