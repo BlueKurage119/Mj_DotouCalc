@@ -72,4 +72,4 @@ tests/          vitest
 `main` ブランチへのpushで `.github/workflows/deploy.yml` が自動デプロイします。
 リポジトリの **Settings → Pages → Source** を **GitHub Actions** に設定してください。
 
-公開URL: `https://<ユーザー名>.github.io/Mj_DotouCalc/`
+公開URL: `https://BlteKurage119.github.io/Mj_DotouCalc/`
