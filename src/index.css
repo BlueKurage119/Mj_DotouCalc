@@ -985,10 +985,11 @@ button {
   display: flex;
   align-items: baseline;
   margin-left: auto;
+  margin-right: 6px;
 }
 
 .score-value strong {
-  font-size: 0.98rem;
+  font-size: 1.25rem;
 }
 
 .score-value .noyaku {
