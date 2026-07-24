@@ -1,4 +1,4 @@
-# Mj_DotouCalc — 少牌マイティ系ルール点数計算ツール
+# mj-mighty-calc — 少牌マイティ系ルール点数計算ツール
 
 「怒涛の戦」（麻雀一番街）「万象修羅」（雀魂）のような **手牌12枚+万能牌（オールマイティ）1枚** のルールに特化した麻雀点数計算Webアプリです。
 
@@ -72,4 +72,4 @@ tests/          vitest
 `main` ブランチへのpushで `.github/workflows/deploy.yml` が自動デプロイします。
 リポジトリの **Settings → Pages → Source** を **GitHub Actions** に設定してください。
 
-公開URL: `https://BlueKurage119.github.io/Mj_DotouCalc/`
+公開URL: `https://bluekurage119.github.io/mj-mighty-calc/`

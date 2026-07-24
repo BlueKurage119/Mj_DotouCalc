@@ -8,7 +8,7 @@ const wasm = wasmImport as unknown as () => PluginOption
 
 // GitHub Pages ではリポジトリ名がサブパスになる
 export default defineConfig({
-  base: process.env.GITHUB_PAGES ? '/Mj_DotouCalc/' : '/',
+  base: process.env.GITHUB_PAGES ? '/mj-mighty-calc/' : '/',
   plugins: [react(), wasm()],
   build: {
     // wasm ESM統合が top-level await を使うため
